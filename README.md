@@ -45,7 +45,7 @@ The processed images can then be used by downstream measurement microservices fo
 
 ### Prerequisites
 
-- Python 3.10+
+- Python 3.9
 - CUDA-capable GPU (recommended) or CPU
 - AWS account with S3 access
 - Docker (for containerized deployment)
