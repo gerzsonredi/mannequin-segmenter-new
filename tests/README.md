@@ -17,10 +17,11 @@ tests/
 
 ## Test Summary
 
-**Total: 22 unit tests**
+**Total: 20 unit tests**
+
 - **test_env_utils.py**: 10 tests (100% passing) - Environment variable handling
 - **test_s3_utils.py**: 6 tests (100% passing) - S3 integration and model downloads
-- **test_api_app.py**: 6 tests (100% passing) - Flask API endpoints and error handling
+- **test_api_app.py**: 4 tests (100% passing) - Flask API endpoints and error handling
 
 ## Running Tests
 
@@ -80,11 +81,11 @@ python -m unittest tests.test_env_utils.TestEnvUtils.test_get_env_variable_exist
 
 ### Current Test Coverage by Module
 
-| Module | Tests | Status | Coverage | Description |
-|--------|-------|--------|----------|-------------|
-| env_utils | 10 | ✅ 100% | Complete | Environment variable handling, quote stripping, validation |
-| s3_utils | 6 | ✅ 100% | Complete | S3 downloads, error handling, local fallback |
-| api_app | 6 | ✅ 100% | Core features | Health endpoint, request validation, error handling |
+| Module    | Tests | Status  | Coverage      | Description                                                |
+| --------- | ----- | ------- | ------------- | ---------------------------------------------------------- |
+| env_utils | 10    | ✅ 100% | Complete      | Environment variable handling, quote stripping, validation |
+| s3_utils  | 6     | ✅ 100% | Complete      | S3 downloads, error handling, local fallback               |
+| api_app   | 4     | ✅ 100% | Core features | Health endpoint, request validation, error handling        |
 
 **Total: 22/22 tests passing (100% success rate)**
 
@@ -104,6 +105,7 @@ pytest --cov=. --cov-report=term-missing tests/
 ### Unit Tests by Module
 
 #### test_env_utils.py (10 tests)
+
 - Quote stripping from environment variables
 - Whitespace handling
 - Empty values and edge cases
@@ -111,19 +113,19 @@ pytest --cov=. --cov-report=term-missing tests/
 - Complex formatting scenarios
 
 #### test_s3_utils.py (6 tests)
+
 - EVF-SAM folder detection
 - AWS credentials handling
 - Successful S3 downloads with file counting
 - S3 errors with local fallback
 - Missing credentials scenarios
 
-#### test_api_app.py (6 tests)
+#### test_api_app.py (4 tests)
+
 - **Health endpoint**: Service status and metadata
 - **Request validation**: Missing image_url handling
 - **Input validation**: No JSON data handling
 - **Model state**: Model not loaded scenarios
-- **Processing errors**: Image processing failures
-- **Exception handling**: Inference exceptions
 
 ### Mock Strategy
 
@@ -172,7 +174,7 @@ def test_new_endpoint(self, mock_load_dotenv, mock_inferencer_cls, ...):
     app = api_app.create_app()
     app.testing = True
     client = app.test_client()
-    
+  
     response = client.post('/new-endpoint', json={'data': 'value'})
     self.assertEqual(response.status_code, 200)
 ```
