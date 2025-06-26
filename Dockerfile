@@ -18,19 +18,17 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements files
-COPY EVF-SAM/requirements.txt /app/evf_sam_requirements.txt
 COPY requirements.txt /app/requirements.txt
 
 # Install Python dependencies
 RUN pip install --no-cache-dir flask torch boto3 python-dotenv 
 RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install --no-cache-dir -r evf_sam_requirements.txt
 
 # Copy the entire application
 COPY . /app/
 
 # Create necessary directories if they don't exist
-RUN mkdir -p /app/artifacts /app/tools /app/EVF-SAM
+RUN mkdir -p /app/artifacts /app/tools 
 
 # Set environment variables
 ENV PYTHONPATH=/app
