@@ -333,11 +333,8 @@ Returns: {"visualization_url": "string"}
 1. Fork the repository
 2. Create a feature branch
 3. Test your changes using the Jupyter notebook
-4. Submit a pull request with detailed description
-
-## 📄 License
-
-[Add your license information here]
+4. Run unit test cases
+5. If every unit test case is passed then submit a pull request with detailed description
 
 ## 🆘 Support
 
