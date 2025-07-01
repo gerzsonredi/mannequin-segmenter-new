@@ -32,7 +32,7 @@ class EVFSAMSingleImageInferencer:
         precision: str = "fp16",
         vis_save_dir: str = "infer",
         use_bnb: bool = False,
-        thickness_threshold: int = 50,
+        thickness_threshold: int = 40,
     ):
         os.makedirs(vis_save_dir, exist_ok=True)
         self.vis_save_dir = vis_save_dir
@@ -43,7 +43,7 @@ class EVFSAMSingleImageInferencer:
         self.thickness_threshold = thickness_threshold
 
         # Force CPU usage to avoid segmentation faults
-        self.device = torch.device("cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         evfsam_logger.log("Forcing CPU usage to avoid segmentation faults")
 
         kwargs = dict(torch_dtype=self.dtype, low_cpu_mem_usage=True)
@@ -66,8 +66,9 @@ class EVFSAMSingleImageInferencer:
         #     self.model = torch.compile(self.model, mode="max-autotune")
         self.tokenizer = AutoTokenizer.from_pretrained(model_version, padding_side="right", use_fast=False)
 
-        self.prompts1 = ["mark beige mannequin under the T-shirt"]
-        self.prompts3 = ["mark only the vertical white-beige tube under the T-shirt"]
+        self.prompts1 = ["mark beige mannequin under the clothing"]
+        self.prompts3 = ["mark only the vertical white-beige tube under the clothing if it is visible"]
+        self.prompts2 = ["mark beige mannequin above the clothing"]
 
     @staticmethod
     def _resize_with_padding(img: np.ndarray, target_size: int):
@@ -91,6 +92,47 @@ class EVFSAMSingleImageInferencer:
         mask_cropped = mask[pt:mask.shape[0] - pb, pl:mask.shape[1] - pr]
         return cv2.resize(mask_cropped.astype(np.uint8), (orig_shape[1], orig_shape[0]), interpolation=cv2.INTER_NEAREST)
 
+    def _is_main_color_brown_or_beige(self, img: np.ndarray) -> bool:
+        """
+        Detect if a significant portion of the image is brown or beige.
+        Returns True if a large enough fraction of pixels are brown/beige, False otherwise.
+        """
+        # Convert to HSV for better color detection
+        hsv_img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+
+        # Define brown and beige color ranges in HSV
+        # Brown: H 10-25, S 60-255, V 20-200
+        lower_brown = np.array([10, 60, 20])
+        upper_brown = np.array([25, 255, 200])
+
+        # Beige: H 15-35, S 10-100, V 180-255
+        lower_beige = np.array([15, 10, 180])
+        upper_beige = np.array([35, 100, 255])
+
+        # Create masks for brown and beige
+        mask_brown = cv2.inRange(hsv_img, lower_brown, upper_brown)
+        mask_beige = cv2.inRange(hsv_img, lower_beige, upper_beige)
+
+        # Combine masks
+        mask_combined = cv2.bitwise_or(mask_brown, mask_beige)
+
+        # Calculate the percentage of brown/beige pixels
+        total_pixels = img.shape[0] * img.shape[1]
+        brown_beige_pixels = np.count_nonzero(mask_combined)
+        fraction = brown_beige_pixels / total_pixels
+
+        # Log the result
+        evfsam_logger.log(
+            f"Brown/beige pixel fraction: {fraction:.3f} "
+            f"(brown: {np.count_nonzero(mask_brown)}, beige: {np.count_nonzero(mask_beige)}, total: {total_pixels})"
+        )
+
+        # Consider the image brown/beige if more than 20% of pixels are in those ranges
+        threshold = 0.10
+        result = fraction > threshold
+        evfsam_logger.log(f"Is main color brown/beige: {result} (threshold: {threshold})")
+        return result
+
     def apply_masks_to_remove_unwanted_areas(
         self,
         img: np.ndarray,
@@ -98,6 +140,12 @@ class EVFSAMSingleImageInferencer:
         mask2: np.ndarray,
         mask3: np.ndarray = None
     ) -> np.ndarray:
+        # Check if main color is brown or beige
+        #if self._is_main_color_brown_or_beige(img):
+        #    evfsam_logger.log("Main color is brown/beige - skipping mask removal")
+        #    return img.copy()
+        
+        #evfsam_logger.log("Main color is not brown/beige - applying mask removal")
         processed_img = img.copy()
         mask1_bool = mask1.astype(bool)
         mask2_bool = mask2.astype(bool)
@@ -146,7 +194,11 @@ class EVFSAMSingleImageInferencer:
                         cleaned_img[component_mask] = 255
         return cleaned_img
 
-    def process_image_url(self, image_url: str, plot: bool = True) -> np.ndarray:
+    def process_image_url(self, image_url: str, plot: bool = True, prompt_mode: str = "both") -> np.ndarray:
+        # Validate prompt_mode
+        if prompt_mode not in ["under", "above", "both"]:
+            raise ValueError("prompt_mode must be 'under', 'above', or 'both'")
+            
         fname = os.path.join(self.vis_save_dir, "temp_image.jpg")
         try:
             response = requests.get(image_url, timeout=15)
@@ -179,43 +231,72 @@ class EVFSAMSingleImageInferencer:
         orig_sizes = [sam_img.shape[:2]]
         resize_info = [None]
 
-        input_ids1 = self.tokenizer(self.prompts1, return_tensors="pt", padding=True)["input_ids"].to(self.device)
-        input_ids3 = self.tokenizer(self.prompts3, return_tensors="pt", padding=True)["input_ids"].to(self.device)
+        # Prepare input_ids based on prompt_mode
+        input_ids_dict = {}
+        if prompt_mode in ["under", "both"]:
+            input_ids_dict['prompts1'] = self.tokenizer(self.prompts1, return_tensors="pt", padding=True)["input_ids"].to(self.device)
+            input_ids_dict['prompts3'] = self.tokenizer(self.prompts3, return_tensors="pt", padding=True)["input_ids"].to(self.device)
+        if prompt_mode in ["above", "both"]:
+            input_ids_dict['prompts2'] = self.tokenizer(self.prompts2, return_tensors="pt", padding=True)["input_ids"].to(self.device)
+
+        evfsam_logger.log(f"Processing with mode '{prompt_mode}', using prompts: {list(input_ids_dict.keys())}")
 
         autocast_device = "cuda" if self.device.type == "cuda" else "cpu"
+        
+        # Run inference based on selected prompts
+        pred_mask_logits = {}
         with torch.autocast(autocast_device, dtype=self.dtype):
-            pred_mask1_logits = self.model.inference(
-                sam_tensor, beit_tensor, input_ids1, resize_list=resize_info, original_size_list=orig_sizes
-            )
-            pred_mask3_logits = self.model.inference(
-                sam_tensor, beit_tensor, input_ids3, resize_list=resize_info, original_size_list=orig_sizes
-            )
+            if 'prompts1' in input_ids_dict:
+                pred_mask_logits['mask1'] = self.model.inference(
+                    sam_tensor, beit_tensor, input_ids_dict['prompts1'], resize_list=resize_info, original_size_list=orig_sizes
+                )
+            if 'prompts2' in input_ids_dict:
+                pred_mask_logits['mask2'] = self.model.inference(
+                    sam_tensor, beit_tensor, input_ids_dict['prompts2'], resize_list=resize_info, original_size_list=orig_sizes
+                )
+            if 'prompts3' in input_ids_dict:
+                pred_mask_logits['mask3'] = self.model.inference(
+                    sam_tensor, beit_tensor, input_ids_dict['prompts3'], resize_list=resize_info, original_size_list=orig_sizes
+                )
 
-        threshold = 0.3
+        threshold = 0.85
 
-        probs1 = torch.sigmoid(pred_mask1_logits[0])
-        mask1 = (probs1.detach().cpu().numpy() > threshold)
-        evfsam_logger.log(f"Pred mask1 logits min: {pred_mask1_logits[0].min():.4f}, max: {pred_mask1_logits[0].max():.4f}")
-        evfsam_logger.log(f"Mask1 probs min: {probs1.min():.4f}, max: {probs1.max():.4f}")
-        evfsam_logger.log(f"Mask1 pixels > {threshold}: {mask1.sum()}")
+        # Process masks based on what was computed
+        final_masks = {}
+        
+        if 'mask1' in pred_mask_logits:
+            probs1 = torch.sigmoid(pred_mask_logits['mask1'][0])
+            mask1 = (probs1.detach().cpu().numpy() > threshold)
+            evfsam_logger.log(f"Pred mask1 logits min: {pred_mask_logits['mask1'][0].min():.4f}, max: {pred_mask_logits['mask1'][0].max():.4f}")
+            evfsam_logger.log(f"Mask1 probs min: {probs1.min():.4f}, max: {probs1.max():.4f}")
+            evfsam_logger.log(f"Mask1 pixels > {threshold}: {mask1.sum()}")
+            final_masks['mask1'] = self._mask_to_original(mask1, sam_pad, img.shape[:2])
+            evfsam_logger.log(f"Final mask1 sum: {final_masks['mask1'].sum()}")
 
-        mask2 = np.zeros_like(mask1, dtype=bool)
+        if 'mask2' in pred_mask_logits:
+            probs2 = torch.sigmoid(pred_mask_logits['mask2'][0])
+            mask2 = (probs2.detach().cpu().numpy() > threshold)
+            evfsam_logger.log(f"Pred mask2 logits min: {pred_mask_logits['mask2'][0].min():.4f}, max: {pred_mask_logits['mask2'][0].max():.4f}")
+            evfsam_logger.log(f"Mask2 probs min: {probs2.min():.4f}, max: {probs2.max():.4f}")
+            evfsam_logger.log(f"Mask2 pixels > {threshold}: {mask2.sum()}")
+            final_masks['mask2'] = self._mask_to_original(mask2, sam_pad, img.shape[:2])
+            evfsam_logger.log(f"Final mask2 sum: {final_masks['mask2'].sum()}")
 
-        probs3 = torch.sigmoid(pred_mask3_logits[0])
-        mask3 = (probs3.detach().cpu().numpy() > threshold)
-        evfsam_logger.log(f"Pred mask3 logits min: {pred_mask3_logits[0].min():.4f}, max: {pred_mask3_logits[0].max():.4f}")
-        evfsam_logger.log(f"Mask3 probs min: {probs3.min():.4f}, max: {probs3.max():.4f}")
-        evfsam_logger.log(f"Mask3 pixels > {threshold}: {mask3.sum()}")
+        if 'mask3' in pred_mask_logits:
+            probs3 = torch.sigmoid(pred_mask_logits['mask3'][0])
+            mask3 = (probs3.detach().cpu().numpy() > threshold)
+            evfsam_logger.log(f"Pred mask3 logits min: {pred_mask_logits['mask3'][0].min():.4f}, max: {pred_mask_logits['mask3'][0].max():.4f}")
+            evfsam_logger.log(f"Mask3 probs min: {probs3.min():.4f}, max: {probs3.max():.4f}")
+            evfsam_logger.log(f"Mask3 pixels > {threshold}: {mask3.sum()}")
+            final_masks['mask3'] = self._mask_to_original(mask3, sam_pad, img.shape[:2])
+            evfsam_logger.log(f"Final mask3 sum: {final_masks['mask3'].sum()}")
 
-        final_mask1 = self._mask_to_original(mask1, sam_pad, img.shape[:2])
-        final_mask2 = self._mask_to_original(mask2, sam_pad, img.shape[:2])
-        final_mask3 = self._mask_to_original(mask3, sam_pad, img.shape[:2])
-
-        evfsam_logger.log(f"Final mask1 sum: {final_mask1.sum()}")
-        evfsam_logger.log(f"Final mask2 sum: {final_mask2.sum()}")
-        evfsam_logger.log(f"Final mask3 sum: {final_mask3.sum()}")
-
-        processed_img = self.apply_masks_to_remove_unwanted_areas(img, final_mask1, final_mask2, final_mask3)
+        # Apply masks to remove unwanted areas
+        mask1_to_use = final_masks.get('mask1', np.zeros(img.shape[:2], dtype=bool))
+        mask2_to_use = final_masks.get('mask2', np.zeros(img.shape[:2], dtype=bool))
+        mask3_to_use = final_masks.get('mask3', np.zeros(img.shape[:2], dtype=bool))
+        
+        processed_img = self.apply_masks_to_remove_unwanted_areas(img, mask1_to_use, mask2_to_use, mask3_to_use)
 
         cleaned_img = self.remove_thin_stripes(
             processed_img,
@@ -230,7 +311,7 @@ class EVFSAMSingleImageInferencer:
             plt.title("Original image")
             plt.axis("off")
             plt.subplot(1, 5, 2)
-            combined_mask_display = final_mask1 | final_mask2 | final_mask3
+            combined_mask_display = mask1_to_use | mask2_to_use | mask3_to_use
             plt.imshow(combined_mask_display, cmap='gray')
             plt.title("Combined mask")
             plt.axis("off")
@@ -243,7 +324,7 @@ class EVFSAMSingleImageInferencer:
             plt.title(f"After cleaning (threshold={self.thickness_threshold})")
             plt.axis("off")
             plt.subplot(1, 5, 5)
-            plt.imshow(final_mask3, cmap='gray')
+            plt.imshow(mask3_to_use, cmap='gray')
             plt.title("Tube mask")
             plt.axis("off")
             plt.tight_layout()

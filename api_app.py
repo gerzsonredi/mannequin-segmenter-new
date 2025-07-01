@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 import os
 import uuid
 from datetime import datetime
+import torch
 
 def create_app(testing=False):
     """Application factory for the Flask app."""
@@ -27,6 +28,12 @@ def create_app(testing=False):
     aws_secret_access_key = get_env_variable("AWS_SECRET_ACCESS_KEY")
     aws_s3_bucket_name = get_env_variable("AWS_S3_BUCKET_NAME")
     aws_s3_region = get_env_variable("AWS_S3_REGION")
+    
+    # EVF-SAM Configuration - get default prompt mode from environment
+    default_prompt_mode = get_env_variable("EVFSAM_PROMPT_MODE") or "both"
+    if default_prompt_mode not in ["under", "above", "both"]:
+        api_logger.log(f"WARNING: Invalid EVFSAM_PROMPT_MODE '{default_prompt_mode}', defaulting to 'both'")
+        default_prompt_mode = "both"
 
     s3_client = boto3.client(
         's3',
@@ -41,9 +48,14 @@ def create_app(testing=False):
         inferencer = None  # Will be replaced by mock in tests
     else:
         print("Loading EVF-SAM model...")
-        api_logger.log("Starting API application - Loading EVF-SAM model...")
+        api_logger.log(f"Starting API application - Loading EVF-SAM model with default prompt_mode: {default_prompt_mode}")
         try:
-            inferencer = EVFSAMSingleImageInferencer(use_bnb=False, precision="fp32")
+            
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            if device == "cuda":
+                inferencer = EVFSAMSingleImageInferencer(use_bnb=False, precision="fp16")
+            else:
+                inferencer = EVFSAMSingleImageInferencer(use_bnb=False, precision="fp32")
             print("Model loaded.")
             api_logger.log("EVF-SAM model loaded successfully")
         except Exception as e:
@@ -72,7 +84,15 @@ def create_app(testing=False):
                 return jsonify({"error": "image_url not provided"}), 400
 
             image_url = data['image_url']
-            api_logger.log(f"Processing image from URL: {image_url}")
+            # Get prompt_mode from request or use default from config
+            prompt_mode = data.get('prompt_mode', current_app.config['DEFAULT_PROMPT_MODE'])
+            
+            # Validate prompt_mode
+            if prompt_mode not in ["under", "above", "both"]:
+                api_logger.log(f"Error: Invalid prompt_mode '{prompt_mode}', must be 'under', 'above', or 'both'")
+                return jsonify({"error": f"Invalid prompt_mode '{prompt_mode}'. Must be 'under', 'above', or 'both'"}), 400
+            
+            api_logger.log(f"Processing image from URL: {image_url} with prompt_mode: {prompt_mode}")
             
             # Check if model loaded successfully
             if inferencer is None:
@@ -88,7 +108,7 @@ def create_app(testing=False):
         
         try:
             api_logger.log("Step 3: About to call process_image_url")
-            vis = inferencer.process_image_url(image_url, plot=False)
+            vis = inferencer.process_image_url(image_url, plot=False, prompt_mode=prompt_mode)
             api_logger.log("Step 4: process_image_url completed")
 
             if vis is None:
@@ -129,6 +149,7 @@ def create_app(testing=False):
     app.config['S3_CLIENT'] = s3_client
     app.config['INFERENCER'] = inferencer
     app.config['API_LOGGER'] = api_logger
+    app.config['DEFAULT_PROMPT_MODE'] = default_prompt_mode
 
     return app
 

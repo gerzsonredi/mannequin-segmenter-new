@@ -87,7 +87,8 @@ class TestApiApp(unittest.TestCase):
             "AWS_ACCESS_KEY_ID": "test_access_key",
             "AWS_SECRET_ACCESS_KEY": "test_secret_key",
             "AWS_S3_BUCKET_NAME": "test-bucket",
-            "AWS_S3_REGION": "us-east-1"
+            "AWS_S3_REGION": "us-east-1",
+            "EVFSAM_PROMPT_MODE": "both"
         }.get(key)
 
     def test_health_endpoint(self):
@@ -115,6 +116,53 @@ class TestApiApp(unittest.TestCase):
         response = self.client.post('/infer', json={})
         self.assertEqual(response.status_code, 400)
         self.assertIn('image_url not provided', response.get_json()['error'])
+
+    def test_infer_endpoint_invalid_prompt_mode(self):
+        """
+        Test the /infer endpoint when an invalid 'prompt_mode' value is provided.
+
+        Sends a POST request with a valid 'image_url' but invalid 'prompt_mode'
+        and asserts that the response status code is 400 (Bad Request) and the 
+        error message indicates the prompt_mode is invalid.
+        """
+        response = self.client.post('/infer', json={
+            'image_url': 'https://example.com/image.jpg',
+            'prompt_mode': 'invalid_mode'
+        })
+        self.assertEqual(response.status_code, 400)
+        error_message = response.get_json()['error']
+        self.assertIn('Invalid prompt_mode', error_message)
+        self.assertIn('invalid_mode', error_message)
+
+    def test_infer_endpoint_valid_prompt_modes(self):
+        """
+        Test the /infer endpoint with different valid prompt_mode values.
+
+        This test verifies that all valid prompt_mode values ('under', 'above', 'both')
+        are accepted by the endpoint and passed correctly to the inferencer.
+        """
+        valid_modes = ['under', 'above', 'both']
+        
+        for mode in valid_modes:
+            with self.subTest(prompt_mode=mode):
+                # Mock successful inference
+                self.mock_inferencer.process_image_url.return_value = np.zeros((10, 10, 3), dtype=np.uint8)
+                
+                response = self.client.post('/infer', json={
+                    'image_url': 'https://example.com/image.jpg',
+                    'prompt_mode': mode
+                })
+                
+                # Should not return 400 error for valid modes
+                self.assertNotEqual(response.status_code, 400)
+                
+                # Verify the inferencer was called with the correct prompt_mode
+                if response.status_code == 200:
+                    self.mock_inferencer.process_image_url.assert_called_with(
+                        'https://example.com/image.jpg', 
+                        plot=False, 
+                        prompt_mode=mode
+                    )
 
     def test_infer_endpoint_model_not_loaded(self):
         """
@@ -168,10 +216,39 @@ class TestApiApp(unittest.TestCase):
         self.assertIn('visualization_url', data)
         self.assertIn('s3.us-east-1.amazonaws.com/2024/01/15/test-uuid.jpg', data['visualization_url'])
         
+        # Verify the inferencer was called with default prompt_mode
+        self.mock_inferencer.process_image_url.assert_called_with(
+            'some_url', 
+            plot=False, 
+            prompt_mode='both'  # Should use the default
+        )
+        
         self.mock_s3_client.upload_fileobj.assert_called_once()
         mock_image.fromarray.assert_called_once()
         mock_image.fromarray.return_value.save.assert_called_once()
         mock_io.BytesIO.assert_called_once()
+
+    def test_infer_default_prompt_mode(self):
+        """
+        Test that the /infer endpoint uses the default prompt_mode when none is specified.
+
+        This test verifies that when no prompt_mode is provided in the request,
+        the endpoint uses the default value from the environment configuration.
+        """
+        # Arrange
+        self.mock_inferencer.process_image_url.return_value = np.zeros((10, 10, 3), dtype=np.uint8)
+        
+        # Act - send request without prompt_mode
+        response = self.client.post('/infer', json={'image_url': 'test_url'})
+        
+        # Assert
+        self.assertEqual(response.status_code, 200)
+        # Verify the inferencer was called with the default prompt_mode from environment
+        self.mock_inferencer.process_image_url.assert_called_with(
+            'test_url', 
+            plot=False, 
+            prompt_mode='both'  # Should use the default from _mock_get_env
+        )
 
 if __name__ == '__main__':
     unittest.main() 

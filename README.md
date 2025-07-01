@@ -66,7 +66,16 @@ AWS_ACCESS_KEY_ID=your_access_key_here
 AWS_SECRET_ACCESS_KEY=your_secret_key_here
 AWS_S3_BUCKET_NAME=your_bucket_name
 AWS_S3_REGION=us-east-1
+
+# Optional: Set default prompt mode for all processing
+EVFSAM_PROMPT_MODE=both  # Options: "under", "above", "both" (default: "both")
 ```
+
+**Environment Variables:**
+- `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`: AWS credentials for S3 access
+- `AWS_S3_BUCKET_NAME`: S3 bucket name for storing processed images
+- `AWS_S3_REGION`: AWS region for S3 bucket
+- `EVFSAM_PROMPT_MODE` (optional): Default prompt mode - can be overridden per request
 
 3. **Choose your deployment method:**
 
@@ -103,9 +112,17 @@ Processes an image URL to remove mannequins and unwanted areas.
 
 ```json
 {
-  "image_url": "https://example.com/path/to/your/image.jpg"
+  "image_url": "https://example.com/path/to/your/image.jpg",
+  "prompt_mode": "both"
 }
 ```
+
+**Parameters:**
+- `image_url` (required): URL of the image to process
+- `prompt_mode` (optional): Controls which areas to remove from the image:
+  - `"under"` - Remove only mannequins/supports under the clothing
+  - `"above"` - Remove only mannequins/supports above the clothing  
+  - `"both"` - Remove both under and above areas (default)
 
 #### Response
 
@@ -122,7 +139,7 @@ Processes an image URL to remove mannequins and unwanted areas.
 ```bash
 curl -X POST http://localhost:5001/infer \
   -H "Content-Type: application/json" \
-  -d '{"image_url": "https://example.com/tshirt-on-mannequin.jpg"}'
+  -d '{"image_url": "https://example.com/tshirt-on-mannequin.jpg", "prompt_mode": "both"}'
 ```
 
 **Python:**
@@ -131,7 +148,8 @@ curl -X POST http://localhost:5001/infer \
 import requests
 
 response = requests.post('http://localhost:5001/infer', json={
-    'image_url': 'https://example.com/tshirt-on-mannequin.jpg'
+    'image_url': 'https://example.com/tshirt-on-mannequin.jpg',
+    'prompt_mode': 'both'  # Options: 'under', 'above', 'both'
 })
 
 result = response.json()
@@ -186,10 +204,24 @@ from evfsam import EVFSAMSingleImageInferencer
 # Initialize model
 inferencer = EVFSAMSingleImageInferencer()
 
-# Process an image
+# Process an image with different prompt modes
 result = inferencer.process_image_url(
     "https://example.com/image.jpg", 
-    plot=True  # Shows visualization
+    plot=True,  # Shows visualization
+    prompt_mode="both"  # Options: "under", "above", "both"
+)
+
+# Examples for different use cases:
+# Remove only under-clothing supports (mannequins, tubes)
+result_under = inferencer.process_image_url(
+    "https://example.com/image.jpg", 
+    prompt_mode="under"
+)
+
+# Remove only above-clothing areas (neck, shoulders)
+result_above = inferencer.process_image_url(
+    "https://example.com/image.jpg", 
+    prompt_mode="above"
 )
 ```
 
