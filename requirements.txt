@@ -35,3 +35,4 @@ torchscale==0.2.0
 hydra-core
 accelerate
 gunicorn==21.2.0
+kornia

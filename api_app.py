@@ -12,6 +12,8 @@ import os
 import uuid
 from datetime import datetime
 import torch
+# from tools.MaskRCNN_segmenter import MaskRCNNSegmenter
+from tools.BirefNet import BiRefNetSegmenter
 
 def create_app(testing=False):
     """Application factory for the Flask app."""
@@ -51,13 +53,31 @@ def create_app(testing=False):
         api_logger.log(f"Starting API application - Loading EVF-SAM model with default prompt_mode: {default_prompt_mode}")
         try:
             
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-            if device == "cuda":
-                inferencer = EVFSAMSingleImageInferencer(use_bnb=False, precision="fp16")
-            else:
-                inferencer = EVFSAMSingleImageInferencer(use_bnb=False, precision="fp32")
-            print("Model loaded.")
-            api_logger.log("EVF-SAM model loaded successfully")
+            # device = "cuda" if torch.cuda.is_available() else "cpu"
+            # if device == "cuda":
+            #     inferencer = EVFSAMSingleImageInferencer(use_bnb=False, precision="fp16")
+            # else:
+            #     inferencer = EVFSAMSingleImageInferencer(use_bnb=False, precision="fp32")
+            # print("Model loaded.")
+            # api_logger.log("EVF-SAM model loaded successfully")
+
+            # # Initialize the segmenter
+            # inferencer = MaskRCNNSegmenter(
+            #     model_path="mannequin-segmenter/artifacts/20250703_132502/checkpoint.pt",
+            #     confidence_threshold=0.5,
+            #     mask_threshold=0.5
+            # )
+
+            # Initialize the segmenter
+            inferencer = BiRefNetSegmenter(
+                model_path="mannequin-segmenter/artifacts/birefnet/checkpoint.pt",  # Optional custom weights
+                model_name="zhengpeng7/BiRefNet",    # HuggingFace model
+                precision="fp16",                    # fp16, fp32, or bf16
+                mask_threshold=0.5
+            )
+
+            print("Inferencer successfully loaded!")
+
         except Exception as e:
             api_logger.log(f"ERROR: Failed to load EVF-SAM model: {str(e)}")
             inferencer = None
@@ -78,25 +98,28 @@ def create_app(testing=False):
         inferencer = current_app.config['INFERENCER'] # Use the inferencer from the app config
         try:
             api_logger.log("Received inference request")
+            print("Received inference request")
             data = request.get_json()
             if not data or 'image_url' not in data:
                 api_logger.log("Error: image_url not provided in request")
+                print("Error: image_url not provided in request")
                 return jsonify({"error": "image_url not provided"}), 400
 
             image_url = data['image_url']
             # Get prompt_mode from request or use default from config
-            prompt_mode = data.get('prompt_mode', current_app.config['DEFAULT_PROMPT_MODE'])
+            # prompt_mode = data.get('prompt_mode', current_app.config['DEFAULT_PROMPT_MODE'])
             
             # Validate prompt_mode
-            if prompt_mode not in ["under", "above", "both"]:
-                api_logger.log(f"Error: Invalid prompt_mode '{prompt_mode}', must be 'under', 'above', or 'both'")
-                return jsonify({"error": f"Invalid prompt_mode '{prompt_mode}'. Must be 'under', 'above', or 'both'"}), 400
+            # if prompt_mode not in ["under", "above", "both"]:
+            #     api_logger.log(f"Error: Invalid prompt_mode '{prompt_mode}', must be 'under', 'above', or 'both'")
+            #     return jsonify({"error": f"Invalid prompt_mode '{prompt_mode}'. Must be 'under', 'above', or 'both'"}), 400
             
-            api_logger.log(f"Processing image from URL: {image_url} with prompt_mode: {prompt_mode}")
+            # api_logger.log(f"Processing image from URL: {image_url} with prompt_mode: {prompt_mode}")
             
             # Check if model loaded successfully
             if inferencer is None:
                 api_logger.log("ERROR: Model not loaded, returning test response")
+                print("ERROR: Model not loaded, returning test response")
                 return jsonify({
                     "error": "EVF-SAM model failed to load",
                     "visualization_url": "https://test-response.example.com/test.jpg",
@@ -104,17 +127,23 @@ def create_app(testing=False):
                 }), 500 # Return 500 as it's a server-side issue
         except Exception as e:
             api_logger.log(f"Exception in /infer input handling: {str(e)}")
+            print(f"Exception in /infer input handling: {str(e)}")
             return jsonify({"error": str(e)}), 500
         
         try:
+            print("Step 3: About to call process_image_url")
             api_logger.log("Step 3: About to call process_image_url")
-            vis = inferencer.process_image_url(image_url, plot=False, prompt_mode=prompt_mode)
+            # vis = inferencer.process_image_url(image_url, plot=False, prompt_mode=prompt_mode)
+            vis = inferencer.process_image_url(image_url)
+            print("Step 4: process_image_url completed")
             api_logger.log("Step 4: process_image_url completed")
 
             if vis is None:
+                print(f"Error: Failed to process image from URL: {image_url}")
                 api_logger.log(f"Error: Failed to process image from URL: {image_url}")
                 return jsonify({"error": "Failed to process image"}), 500
 
+            print("Step 5: About to convert and upload to S3")
             api_logger.log("Step 5: About to convert and upload to S3")
             vis_pil = Image.fromarray(vis.astype(np.uint8))
             buff = io.BytesIO()
@@ -134,6 +163,7 @@ def create_app(testing=False):
             )
 
             s3_url = f"https://{aws_s3_bucket_name}.s3.{aws_s3_region}.amazonaws.com/{s3_key}"
+            print(f"Step 6: Successfully processed image and uploaded result to S3: {s3_url}")
             api_logger.log(f"Step 6: Successfully processed image and uploaded result to S3: {s3_url}")
             
             return jsonify({
@@ -149,7 +179,7 @@ def create_app(testing=False):
     app.config['S3_CLIENT'] = s3_client
     app.config['INFERENCER'] = inferencer
     app.config['API_LOGGER'] = api_logger
-    app.config['DEFAULT_PROMPT_MODE'] = default_prompt_mode
+    # app.config['DEFAULT_PROMPT_MODE'] = default_prompt_mode
 
     return app
 
