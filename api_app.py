@@ -75,7 +75,9 @@ def create_app(testing=False):
                 precision="fp16",                    # fp16, fp32, or bf16
                 mask_threshold=0.5
             )
-
+            if inferencer is None:
+                print("Error! Couldn't load inferencer!")
+                exit(1)
             print("Inferencer successfully loaded!")
 
         except Exception as e:
