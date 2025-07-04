@@ -70,10 +70,10 @@ def create_app(testing=False):
 
             # Initialize the segmenter
             inferencer = BiRefNetSegmenter(
-                model_path="mannequin-segmenter/artifacts/birefnet/checkpoint.pt",  # Optional custom weights
+                model_path="artifacts/20250703_190222/checkpoint.pt",
                 model_name="zhengpeng7/BiRefNet",    # HuggingFace model
                 precision="fp16",                    # fp16, fp32, or bf16
-                mask_threshold=0.5
+                mask_threshold=0.1
             )
             if inferencer is None:
                 print("Error! Couldn't load inferencer!")
@@ -175,6 +175,7 @@ def create_app(testing=False):
         except Exception as e:
             error_msg = f"Error processing image from URL {image_url}: {str(e)}"
             api_logger.log(error_msg)
+            print(error_msg)
             return jsonify({"error": str(e)}), 500
             
     # Attach objects to app context for easier testing and access

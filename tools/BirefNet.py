@@ -68,7 +68,7 @@ class BiRefNetSegmenter:
             self.model.to(self.device)
             self.model.eval()
             
-            # Apply half precision if using CUDA and fp16
+            # Apply half precision if using CUDA and fp16 (matching notebook)
             if self.device.type == 'cuda' and self.precision == 'fp16':
                 self.model.half()
                 
@@ -100,87 +100,18 @@ class BiRefNetSegmenter:
             self.logger.log("No custom weights provided, using pretrained model")
             print("No custom weights provided, using pretrained model")
         
-        # Initialize processor if available
-        try:
-            self.processor = AutoProcessor.from_pretrained(model_name, trust_remote_code=True)
-            self.logger.log("Processor loaded successfully")
-            print("Processor loaded successfully")
-        except:
-            self.logger.log("No processor available, using manual preprocessing")
-            print("No processor available, using manual preprocessing")
-            self.processor = None
+        # Skip processor initialization - use manual preprocessing like notebook
+        self.processor = None
+        self.logger.log("Using manual preprocessing (matching notebook approach)")
+        print("Using manual preprocessing (matching notebook approach)")
         
         self.logger.log("BiRefNet Segmenter initialized successfully")
         print("BiRefNet Segmenter initialized successfully")
 
-    @staticmethod
-    def _resize_with_padding(img: np.ndarray, target_size: int):
-        """
-        Resize image with padding to maintain aspect ratio.
-        Same implementation as EVF-SAM for consistency.
-        """
-        h, w = img.shape[:2]
-        scale = target_size / max(h, w)
-        nh, nw = int(h * scale), int(w * scale)
-        img_resized = cv2.resize(img, (nw, nh), interpolation=cv2.INTER_CUBIC)
-        pad_top = (target_size - nh) // 2
-        pad_bottom = target_size - nh - pad_top
-        pad_left = (target_size - nw) // 2
-        pad_right = target_size - nw - pad_left
-        img_padded = cv2.copyMakeBorder(
-            img_resized, pad_top, pad_bottom, pad_left, pad_right,
-            borderType=cv2.BORDER_CONSTANT, value=[0, 0, 0]
-        )
-        return img_padded, (pad_top, pad_bottom, pad_left, pad_right), (nh, nw)
-
-    @staticmethod
-    def _mask_to_original(mask: np.ndarray, pad: tuple, orig_shape: tuple) -> np.ndarray:
-        """
-        Transform mask back to original image dimensions.
-        Same implementation as EVF-SAM for consistency.
-        """
-        pt, pb, pl, pr = pad
-        mask_cropped = mask[pt:mask.shape[0] - pb, pl:mask.shape[1] - pr]
-        return cv2.resize(mask_cropped.astype(np.uint8), (orig_shape[1], orig_shape[0]), interpolation=cv2.INTER_NEAREST)
-
-    def _is_main_color_brown_or_beige(self, img: np.ndarray) -> bool:
-        """
-        Detect if a significant portion of the image is brown or beige.
-        Same implementation as EVF-SAM for consistency.
-        """
-        # Convert to HSV for better color detection
-        hsv_img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-
-        # Define brown and beige color ranges in HSV
-        lower_brown = np.array([10, 60, 20])
-        upper_brown = np.array([25, 255, 200])
-        lower_beige = np.array([15, 10, 180])
-        upper_beige = np.array([35, 100, 255])
-
-        # Create masks for brown and beige
-        mask_brown = cv2.inRange(hsv_img, lower_brown, upper_brown)
-        mask_beige = cv2.inRange(hsv_img, lower_beige, upper_beige)
-        mask_combined = cv2.bitwise_or(mask_brown, mask_beige)
-
-        # Calculate the percentage of brown/beige pixels
-        total_pixels = img.shape[0] * img.shape[1]
-        brown_beige_pixels = np.count_nonzero(mask_combined)
-        fraction = brown_beige_pixels / total_pixels
-
-        msg = f"Brown/beige pixel fraction: {fraction:.3f} (brown: {np.count_nonzero(mask_brown)}, beige: {np.count_nonzero(mask_beige)}, total: {total_pixels})"
-        self.logger.log(msg)
-        print(msg)
-
-        threshold = 0.10
-        result = fraction > threshold
-        msg2 = f"Is main color brown/beige: {result} (threshold: {threshold})"
-        self.logger.log(msg2)
-        print(msg2)
-        return result
-
     def _preprocess_image(self, img: np.ndarray) -> torch.Tensor:
         """
         Preprocess image for BiRefNet inference.
+        Based on the notebook preprocessing approach.
         
         Args:
             img: Input image in BGR format
@@ -188,38 +119,69 @@ class BiRefNetSegmenter:
         Returns:
             Preprocessed image tensor
         """
-        # Convert BGR to RGB
-        img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        
-        # Convert to PIL Image
-        pil_img = Image.fromarray(img_rgb)
-        
-        if self.processor is not None:
-            # Use the processor if available
-            inputs = self.processor(pil_img, return_tensors="pt")
-            img_tensor = inputs["pixel_values"].to(self.device)
-            if self.precision == 'fp16' and self.device.type == 'cuda':
-                img_tensor = img_tensor.half()
-        else:
-            # Manual preprocessing
-            # Resize to standard BiRefNet input size (typically 1024x1024)
-            pil_img = pil_img.resize((1024, 1024), Image.BILINEAR)
+        try:
+            # Convert BGR to RGB
+            img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             
-            # Convert to tensor and normalize
+            # Convert to PIL Image and resize to 512x512 (matching notebook)
+            pil_img = Image.fromarray(img_rgb).convert("RGB").resize((512, 512))
+            
+            self.logger.log(f"Input image shape: {img.shape}, resized to: {pil_img.size}")
+            print(f"Input image shape: {img.shape}, resized to: {pil_img.size}")
+            
+            # Convert to tensor (matching notebook - no explicit normalization)
             img_tensor = F.to_tensor(pil_img).unsqueeze(0).to(self.device)
             
-            # Standard ImageNet normalization
-            mean = torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1).to(self.device)
-            std = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1).to(self.device)
-            
+            # Apply half precision if needed
             if self.precision == 'fp16' and self.device.type == 'cuda':
                 img_tensor = img_tensor.half()
-                mean = mean.half()
-                std = std.half()
             
-            img_tensor = (img_tensor - mean) / std
-        
-        return img_tensor
+            self.logger.log(f"Preprocessing output shape: {img_tensor.shape}, dtype: {img_tensor.dtype}")
+            print(f"Preprocessing output shape: {img_tensor.shape}, dtype: {img_tensor.dtype}")
+            
+            return img_tensor
+            
+        except Exception as e:
+            self.logger.log(f"Error in _preprocess_image: {e}")
+            print(f"Error in _preprocess_image: {e}")
+            raise
+
+    def _extract_birefnet_output(self, logits):
+        """
+        Extract the correct output tensor from BiRefNet's complex output structure.
+        Based on the notebook's extract_birefnet_output function.
+        """
+        # Strategy 1: Direct tensor
+        if hasattr(logits, 'shape'):
+            return logits
+
+        # Strategy 2: Look for 512x512 tensor (matching notebook training size)
+        def find_512x512_tensor(obj):
+            if hasattr(obj, 'shape') and len(obj.shape) >= 2 and obj.shape[-2:] == (512, 512):
+                return obj
+            elif isinstance(obj, (list, tuple)):
+                for item in obj:
+                    result = find_512x512_tensor(item)
+                    if result is not None:
+                        return result
+            return None
+
+        result = find_512x512_tensor(logits)
+        if result is not None:
+            return result
+
+        # Strategy 3: Take the last tensor we can find
+        def find_any_tensor(obj):
+            if hasattr(obj, 'shape'):
+                return obj
+            elif isinstance(obj, (list, tuple)):
+                for item in reversed(obj):  # Try from the end
+                    result = find_any_tensor(item)
+                    if result is not None:
+                        return result
+            return None
+
+        return find_any_tensor(logits)
 
     def _run_inference(self, img_tensor: torch.Tensor) -> torch.Tensor:
         """
@@ -232,20 +194,45 @@ class BiRefNetSegmenter:
             Segmentation mask tensor
         """
         with torch.no_grad():
-            if self.processor is not None:
-                # Use model with processor
+            try:
                 outputs = self.model(img_tensor)
-                # BiRefNet typically returns logits that need sigmoid
-                if hasattr(outputs, 'logits'):
-                    mask = torch.sigmoid(outputs.logits)
-                else:
-                    mask = torch.sigmoid(outputs)
-            else:
-                # Direct model inference
-                outputs = self.model(img_tensor)
-                mask = torch.sigmoid(outputs)
-        
-        return mask.squeeze()  # Remove batch dimension
+                
+                # Use the extraction function from the notebook
+                extracted_logits = self._extract_birefnet_output(outputs)
+                
+                if extracted_logits is None:
+                    self.logger.log("Warning: Could not extract valid output from BiRefNet")
+                    print("Warning: Could not extract valid output from BiRefNet")
+                    # Return empty mask as fallback
+                    return torch.zeros((512, 512), device=self.device, dtype=img_tensor.dtype)
+                
+                # Apply sigmoid to get probabilities
+                mask = torch.sigmoid(extracted_logits)
+                
+                # Remove any extra dimensions and ensure 2D output
+                while mask.ndim > 2:
+                    mask = mask.squeeze(0)
+                
+                self.logger.log(f"Inference output shape: {mask.shape}, dtype: {mask.dtype}")
+                print(f"Inference output shape: {mask.shape}, dtype: {mask.dtype}")
+                
+                return mask
+                
+            except Exception as e:
+                self.logger.log(f"Error during BiRefNet inference: {e}")
+                print(f"Error during BiRefNet inference: {e}")
+                self.logger.log(f"Model output type: {type(outputs)}")
+                print(f"Model output type: {type(outputs)}")
+                if isinstance(outputs, (list, tuple)):
+                    self.logger.log(f"Output length: {len(outputs)}")
+                    print(f"Output length: {len(outputs)}")
+                    for i, item in enumerate(outputs[:3]):  # Show first 3 items
+                        self.logger.log(f"Item {i} type: {type(item)}")
+                        print(f"Item {i} type: {type(item)}")
+                        if hasattr(item, 'shape'):
+                            self.logger.log(f"Item {i} shape: {item.shape}")
+                            print(f"Item {i} shape: {item.shape}")
+                raise
 
     def _extract_mannequin_masks(self, mask_tensor: torch.Tensor, img_shape: tuple) -> np.ndarray:
         """
@@ -258,32 +245,55 @@ class BiRefNetSegmenter:
         Returns:
             Binary mannequin mask
         """
-        # Convert tensor to numpy
-        mask_np = mask_tensor.detach().cpu().numpy()
-        
-        # Handle different output formats
-        if mask_np.ndim == 3:
-            # If multiple channels, take the first one or average
-            if mask_np.shape[0] > 1:
-                mask_np = mask_np.mean(axis=0)
+        try:
+            # Convert tensor to numpy with proper type handling
+            if mask_tensor.dtype == torch.float16:
+                mask_np = mask_tensor.detach().cpu().float().numpy()
             else:
-                mask_np = mask_np[0]
-        
-        # Resize to original image shape
-        mask_resized = cv2.resize(mask_np, (img_shape[1], img_shape[0]), interpolation=cv2.INTER_LINEAR)
-        
-        # Binarize mask
-        binary_mask = mask_resized > self.mask_threshold
-        
-        msg1 = f"Mask shape: {mask_resized.shape}, threshold: {self.mask_threshold}"
-        self.logger.log(msg1)
-        print(msg1)
-        
-        msg2 = f"Mask pixels above threshold: {binary_mask.sum()}"
-        self.logger.log(msg2)
-        print(msg2)
-        
-        return binary_mask
+                mask_np = mask_tensor.detach().cpu().numpy()
+            
+            self.logger.log(f"Initial mask shape: {mask_np.shape}, dtype: {mask_np.dtype}")
+            print(f"Initial mask shape: {mask_np.shape}, dtype: {mask_np.dtype}")
+            
+            # Ensure 2D mask
+            while mask_np.ndim > 2:
+                mask_np = mask_np.squeeze()
+            
+            if mask_np.ndim != 2:
+                self.logger.log(f"Warning: Unexpected mask dimensions: {mask_np.shape}")
+                print(f"Warning: Unexpected mask dimensions: {mask_np.shape}")
+                return np.zeros(img_shape, dtype=bool)
+            
+            self.logger.log(f"Processed mask shape: {mask_np.shape}")
+            print(f"Processed mask shape: {mask_np.shape}")
+            
+            # Resize to original image shape
+            if mask_np.shape != img_shape:
+                mask_resized = cv2.resize(mask_np, (img_shape[1], img_shape[0]), interpolation=cv2.INTER_LINEAR)
+            else:
+                mask_resized = mask_np
+            
+            # Ensure values are in [0, 1] range
+            mask_resized = np.clip(mask_resized, 0, 1)
+            
+            # Binarize mask
+            binary_mask = mask_resized > self.mask_threshold
+            
+            msg1 = f"Final mask shape: {mask_resized.shape}, threshold: {self.mask_threshold}"
+            self.logger.log(msg1)
+            print(msg1)
+            
+            msg2 = f"Mask pixels above threshold: {binary_mask.sum()}"
+            self.logger.log(msg2)
+            print(msg2)
+            
+            return binary_mask
+            
+        except Exception as e:
+            self.logger.log(f"Error in _extract_mannequin_masks: {e}")
+            print(f"Error in _extract_mannequin_masks: {e}")
+            # Return empty mask as fallback
+            return np.zeros(img_shape, dtype=bool)
 
     def apply_masks_to_remove_unwanted_areas(
         self,
@@ -310,6 +320,46 @@ class BiRefNetSegmenter:
             
         return processed_img
 
+    def _filter_components(
+        self,
+        mask: np.ndarray,
+        min_size: int = 400,
+        keep_largest: bool = False,
+        connectivity: int = 8,
+    ) -> np.ndarray:
+        """
+        Remove small connected components *or* keep only the largest one.
+
+        Args:
+            mask: binary mask (bool / 0-1) where True==foreground.
+            min_size: minimum pixel area to keep (ignored if keep_largest=True).
+            keep_largest: if True keep only the biggest component, otherwise drop
+                          everything smaller than min_size.
+            connectivity: 4 or 8 (8 gives diagonals connectivity).
+
+        Returns:
+            Cleaned binary mask (same shape as input).
+        """
+        # Make sure we have uint8 {0,1} for OpenCV
+        mask_uint8 = mask.astype(np.uint8)
+
+        num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(
+            mask_uint8, connectivity=connectivity
+        )
+
+        # stats[:, cv2.CC_STAT_AREA] => pixel count per label (label 0 is background)
+        if keep_largest and num_labels > 1:
+            # Choose foreground label with largest area
+            largest_label = 1 + np.argmax(stats[1:, cv2.CC_STAT_AREA])
+            cleaned = labels == largest_label
+        else:
+            # Keep everything >= min_size
+            keep = stats[:, cv2.CC_STAT_AREA] >= min_size
+            keep[0] = False  # never keep background
+            cleaned = keep[labels]
+
+        return cleaned.astype(bool)
+
     def remove_thin_stripes(
         self,
         img: np.ndarray,
@@ -335,6 +385,11 @@ class BiRefNetSegmenter:
             kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size, kernel_size))
             opened_mask = cv2.morphologyEx(non_white_mask.astype(np.uint8), cv2.MORPH_OPEN, kernel)
             removed_areas = non_white_mask & ~opened_mask.astype(bool)
+            removed_areas = self._filter_components(
+                removed_areas,
+                min_size=2000,
+                keep_largest=False,   # change to True if you prefer “largest only”
+            )
             
             if cleaned_img.ndim == 3:
                 cleaned_img[removed_areas] = [255, 255, 255]
@@ -383,6 +438,7 @@ class BiRefNetSegmenter:
                 f.write(response.content)
             
             img = cv2.imread(fname)
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             if img is None:
                 raise ValueError("Failed to load the image!")
                 
@@ -418,6 +474,8 @@ class BiRefNetSegmenter:
             thickness_threshold=self.thickness_threshold,
             method="morphology"
         )
+
+
 
         # Visualization
         if plot:
