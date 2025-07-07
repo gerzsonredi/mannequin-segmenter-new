@@ -23,7 +23,7 @@ class BiRefNetSegmenter:
         model_name: str = "zhengpeng7/BiRefNet",
         precision: str = "fp16",
         vis_save_dir: str = "infer",
-        thickness_threshold: int = 40,
+        thickness_threshold: int = 200,
         mask_threshold: float = 0.5,
     ):
         """
@@ -385,11 +385,11 @@ class BiRefNetSegmenter:
             kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (kernel_size, kernel_size))
             opened_mask = cv2.morphologyEx(non_white_mask.astype(np.uint8), cv2.MORPH_OPEN, kernel)
             removed_areas = non_white_mask & ~opened_mask.astype(bool)
-            removed_areas = self._filter_components(
-                removed_areas,
-                min_size=2000,
-                keep_largest=False,   # change to True if you prefer “largest only”
-            )
+            # removed_areas = self._filter_components(
+            #     removed_areas,
+            #     min_size=2000,
+            #     keep_largest=False,   # change to True if you prefer “largest only”
+            # )
             
             if cleaned_img.ndim == 3:
                 cleaned_img[removed_areas] = [255, 255, 255]
