@@ -6,10 +6,11 @@ import os
 bind = "0.0.0.0:5001"
 backlog = 2048
 
-# Worker processes - EXPLICITLY 1 WORKER FOR MODEL INFERENCE
-workers = 1  # CRITICAL: Only 1 worker to avoid memory conflicts with large model
-worker_class = "sync"
-worker_connections = 1000
+# Worker processes - MAXIMUM CONCURRENCY FOR OPTIMAL GPU SATURATION
+# Strategy: Allow 100 concurrent requests per instance, Cloud Run auto-scales when GPU maxed out
+workers = 8  # 8 workers handle up to 100 concurrent requests via gevent async
+worker_class = "gevent"  # Async workers for better concurrency
+worker_connections = 2000  # Increased for 100 concurrent requests per instance
 timeout = 600  # 10 minutes for model inference (increased for CPU processing)
 keepalive = 5
 
