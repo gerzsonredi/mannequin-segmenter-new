@@ -27,7 +27,6 @@ RUN ln -s /usr/bin/python3.10 /usr/bin/python
 RUN python -m pip install --upgrade pip
 
 # Copy requirements files
-COPY EVF-SAM/requirements.txt /app/evf_sam_requirements.txt
 COPY requirements.txt /app/requirements.txt
 
 # Install PyTorch with CUDA support first
@@ -36,7 +35,6 @@ RUN pip install --no-cache-dir torch torchvision --index-url https://download.py
 # Install other Python dependencies
 RUN pip install --no-cache-dir flask boto3 python-dotenv
 RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install --no-cache-dir -r evf_sam_requirements.txt
 
 # Copy the entire application
 COPY . /app/
