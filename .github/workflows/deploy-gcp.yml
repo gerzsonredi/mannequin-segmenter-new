@@ -56,7 +56,7 @@ jobs:
 
     - name: Deploy to Cloud Run with GPU
       run: |
-        echo "y" | gcloud run deploy ${{ env.SERVICE_NAME }} \
+        gcloud run deploy ${{ env.SERVICE_NAME }} \
           --image ${{ env.GAR_LOCATION }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
           --platform managed \
           --region ${{ env.REGION }} \
@@ -67,7 +67,7 @@ jobs:
           --timeout 900 \
           --concurrency 1 \
           --min-instances 0 \
-          --max-instances 1 \
+          --max-instances 3 \
           --no-cpu-boost \
           --execution-environment gen2 \
           --set-env-vars="EVFSAM_PROMPT_MODE=both" \
@@ -78,6 +78,13 @@ jobs:
           --set-secrets="AWS_SECRET_ACCESS_KEY=aws-secret-key:latest" \
           --set-secrets="AWS_S3_BUCKET_NAME=aws-s3-bucket:latest" \
           --set-secrets="AWS_S3_REGION=aws-s3-region:latest"
+
+    - name: Set public access
+      run: |
+        gcloud run services add-iam-policy-binding ${{ env.SERVICE_NAME }} \
+          --region=${{ env.REGION }} \
+          --member="allUsers" \
+          --role="roles/run.invoker" || echo "Public access may be restricted by organization policy"
 
     - name: Get Cloud Run URL
       run: |
