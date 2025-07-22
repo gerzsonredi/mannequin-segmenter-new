@@ -69,7 +69,9 @@ jobs:
           --timeout 900 \
           --concurrency 1 \
           --min-instances 0 \
-          --max-instances 5 \
+          --max-instances 1 \
+          --no-cpu-boost \
+          --execution-environment gen2 \
           --set-env-vars="EVFSAM_PROMPT_MODE=both" \
           --set-env-vars="FLASK_ENV=production" \
           --set-env-vars="PYTHONPATH=/app" \
@@ -98,7 +100,7 @@ jobs:
         echo "- **URL**: ${{ env.SERVICE_URL }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Region**: ${{ env.REGION }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Image**: ${{ env.GAR_LOCATION }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Auto-scaling**: 0-5 instances" >> $GITHUB_STEP_SUMMARY
+        echo "- **Auto-scaling**: 0-1 instances" >> $GITHUB_STEP_SUMMARY
         echo "- **Memory**: 16Gi" >> $GITHUB_STEP_SUMMARY
         echo "- **CPU**: 4" >> $GITHUB_STEP_SUMMARY
         echo "- **GPU**: 1x NVIDIA L4" >> $GITHUB_STEP_SUMMARY 
