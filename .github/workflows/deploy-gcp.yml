@@ -62,10 +62,8 @@ jobs:
           --region ${{ env.REGION }} \
           --allow-unauthenticated \
           --port 5001 \
-          --memory 16Gi \
+          --memory 4Gi \
           --cpu 4 \
-          --gpu 1 \
-          --gpu-type nvidia-l4 \
           --timeout 900 \
           --concurrency 1 \
           --min-instances 0 \
@@ -101,6 +99,5 @@ jobs:
         echo "- **Region**: ${{ env.REGION }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Image**: ${{ env.GAR_LOCATION }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Auto-scaling**: 0-1 instances" >> $GITHUB_STEP_SUMMARY
-        echo "- **Memory**: 16Gi" >> $GITHUB_STEP_SUMMARY
-        echo "- **CPU**: 4" >> $GITHUB_STEP_SUMMARY
-        echo "- **GPU**: 1x NVIDIA L4" >> $GITHUB_STEP_SUMMARY 
+        echo "- **Memory**: 4Gi" >> $GITHUB_STEP_SUMMARY
+        echo "- **CPU**: 4 (CPU-only for initial setup)" >> $GITHUB_STEP_SUMMARY 
