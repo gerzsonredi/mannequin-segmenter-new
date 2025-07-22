@@ -1,5 +1,5 @@
-# Use NVIDIA CUDA runtime as base image for GPU support  
-FROM nvidia/cuda:12.1-runtime-ubuntu22.04
+# Use Ubuntu base image - Cloud Run provides GPU drivers
+FROM ubuntu:22.04
 
 # Set working directory
 WORKDIR /app
@@ -31,7 +31,7 @@ COPY EVF-SAM/requirements.txt /app/evf_sam_requirements.txt
 COPY requirements.txt /app/requirements.txt
 
 # Install PyTorch with CUDA support first
-RUN pip install --no-cache-dir torch torchvision --extra-index-url https://download.pytorch.org/whl/cu121
+RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cu118
 
 # Install other Python dependencies
 RUN pip install --no-cache-dir flask boto3 python-dotenv
@@ -44,13 +44,10 @@ COPY . /app/
 # Create necessary directories
 RUN mkdir -p /app/artifacts /app/tools /app/EVF-SAM
 
-# Set environment variables for CUDA and Python
+# Set environment variables for Python and GPU
 ENV PYTHONPATH=/app
 ENV FLASK_APP=api_app:app
 ENV FLASK_ENV=production
-ENV CUDA_VISIBLE_DEVICES=0
-ENV NVIDIA_VISIBLE_DEVICES=all
-ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
 # Expose the port
 EXPOSE 5001
