@@ -17,8 +17,8 @@ on:
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   SERVICE_NAME: mannequin-segmenter
-  REGION: europe-west3
-  GAR_LOCATION: europe-west3-docker.pkg.dev
+  REGION: europe-west4
+  GAR_LOCATION: europe-west4-docker.pkg.dev
   REPOSITORY: mannequin-segmenter-repo
 
 jobs:
