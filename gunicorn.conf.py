@@ -6,7 +6,7 @@ import os
 bind = "0.0.0.0:5001"
 backlog = 2048
 
-# Worker processes - EXPLICITLY 1 WORKER FOR EVF-SAM MODEL
+# Worker processes - EXPLICITLY 1 WORKER FOR MODEL INFERENCE
 workers = 1  # CRITICAL: Only 1 worker to avoid memory conflicts with large model
 worker_class = "sync"
 worker_connections = 1000
@@ -24,7 +24,7 @@ loglevel = "info"
 access_log_format = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s" %(D)s'
 
 # Process naming
-proc_name = "evf-sam-api"
+proc_name = "mannequin-segmenter-api"
 
 # Server mechanics
 daemon = False
@@ -43,7 +43,7 @@ raw_env = [
 ]
 
 def when_ready(server):
-    server.log.info("EVF-SAM API server is ready. Listening on %s", server.address)
+    server.log.info("Mannequin Segmenter API server is ready. Listening on %s", server.address)
 
 def worker_int(worker):
     worker.log.info("Worker received INT or QUIT signal")

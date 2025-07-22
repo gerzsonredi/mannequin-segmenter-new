@@ -58,14 +58,14 @@ def mock_s3_client():
 
 
 @pytest.fixture
-def mock_evfsam_inferencer():
+def mock_inferencer():
     """
-    Fixture that provides a mock EVFSAMSingleImageInferencer instance.
+    Fixture that provides a mock model inferencer instance.
 
     Returns:
         MagicMock: A mock inferencer object with the 'process_image_url' method mocked.
 
-    Use this fixture to test code that depends on the EVFSAMSingleImageInferencer without running actual inference.
+    Use this fixture to test code that depends on the model inferencer without running actual inference.
     """
     inferencer = MagicMock()
     inferencer.process_image_url = MagicMock()
@@ -75,7 +75,7 @@ def mock_evfsam_inferencer():
 @pytest.fixture
 def mock_logger():
     """
-    Fixture that provides a mock logger object for EVFSAMLogger.
+    Fixture that provides a mock logger object for AppLogger.
 
     Returns:
         MagicMock: A mock logger with the 'log' method mocked.

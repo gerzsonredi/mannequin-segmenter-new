@@ -40,7 +40,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . /app/
 
 # Create necessary directories
-RUN mkdir -p /app/artifacts /app/tools /app/EVF-SAM
+RUN mkdir -p /app/artifacts /app/tools
 
 # Set environment variables for Python and GPU
 ENV PYTHONPATH=/app

@@ -1,6 +1,5 @@
 from flask import Flask, request, jsonify, current_app
-from evfsam import EVFSAMSingleImageInferencer
-from tools.logger import EVFSAMLogger
+from tools.logger import EVFSAMLogger as AppLogger
 from tools.env_utils import get_env_variable
 import base64
 from PIL import Image
@@ -20,9 +19,9 @@ def create_app(testing=False):
     app = Flask(__name__)
     load_dotenv()
 
-    # Initialize logger using EVFSAMLogger from tools package
-    api_logger = EVFSAMLogger()
-    # Note: EVFSAMLogger is a simple custom logger, not a standard Python logger
+    # Initialize logger
+    api_logger = AppLogger()
+    # Note: AppLogger is a simple custom logger, not a standard Python logger
     # So we don't integrate it with Flask's logging system
 
     # AWS S3 Configuration
@@ -30,12 +29,6 @@ def create_app(testing=False):
     aws_secret_access_key = get_env_variable("AWS_SECRET_ACCESS_KEY")
     aws_s3_bucket_name = get_env_variable("AWS_S3_BUCKET_NAME")
     aws_s3_region = get_env_variable("AWS_S3_REGION")
-    
-    # EVF-SAM Configuration - get default prompt mode from environment
-    default_prompt_mode = get_env_variable("EVFSAM_PROMPT_MODE") or "both"
-    if default_prompt_mode not in ["under", "above", "both"]:
-        api_logger.log(f"WARNING: Invalid EVFSAM_PROMPT_MODE '{default_prompt_mode}', defaulting to 'both'")
-        default_prompt_mode = "both"
 
     s3_client = boto3.client(
         's3',
@@ -49,24 +42,8 @@ def create_app(testing=False):
     if testing:
         inferencer = None  # Will be replaced by mock in tests
     else:
-        print("Loading EVF-SAM model...")
-        api_logger.log(f"Starting API application - Loading EVF-SAM model with default prompt_mode: {default_prompt_mode}")
+ 
         try:
-            
-            # device = "cuda" if torch.cuda.is_available() else "cpu"
-            # if device == "cuda":
-            #     inferencer = EVFSAMSingleImageInferencer(use_bnb=False, precision="fp16")
-            # else:
-            #     inferencer = EVFSAMSingleImageInferencer(use_bnb=False, precision="fp32")
-            # print("Model loaded.")
-            # api_logger.log("EVF-SAM model loaded successfully")
-
-            # # Initialize the segmenter
-            # inferencer = MaskRCNNSegmenter(
-            #     model_path="mannequin-segmenter/artifacts/20250703_132502/checkpoint.pt",
-            #     confidence_threshold=0.5,
-            #     mask_threshold=0.5
-            # )
 
             # Initialize the segmenter
             inferencer = BiRefNetSegmenter(
@@ -81,7 +58,6 @@ def create_app(testing=False):
             print("Inferencer successfully loaded!")
 
         except Exception as e:
-            api_logger.log(f"ERROR: Failed to load EVF-SAM model: {str(e)}")
             inferencer = None
             print(f"Model loading failed: {e}")
 
@@ -91,7 +67,7 @@ def create_app(testing=False):
         return jsonify({
             "status": "healthy",
             "timestamp": datetime.utcnow().isoformat(),
-            "service": "evf-sam-api",
+            "service": "mannequin-segmenter-api",
             "version": "1.0.0"
         }), 200
 
@@ -108,22 +84,13 @@ def create_app(testing=False):
                 return jsonify({"error": "image_url not provided"}), 400
 
             image_url = data['image_url']
-            # Get prompt_mode from request or use default from config
-            # prompt_mode = data.get('prompt_mode', current_app.config['DEFAULT_PROMPT_MODE'])
-            
-            # Validate prompt_mode
-            # if prompt_mode not in ["under", "above", "both"]:
-            #     api_logger.log(f"Error: Invalid prompt_mode '{prompt_mode}', must be 'under', 'above', or 'both'")
-            #     return jsonify({"error": f"Invalid prompt_mode '{prompt_mode}'. Must be 'under', 'above', or 'both'"}), 400
-            
-            # api_logger.log(f"Processing image from URL: {image_url} with prompt_mode: {prompt_mode}")
-            
+
             # Check if model loaded successfully
             if inferencer is None:
                 api_logger.log("ERROR: Model not loaded, returning test response")
                 print("ERROR: Model not loaded, returning test response")
                 return jsonify({
-                    "error": "EVF-SAM model failed to load",
+                    "error": "model failed to load",
                     "visualization_url": "https://test-response.example.com/test.jpg",
                     "input_url": image_url
                 }), 500 # Return 500 as it's a server-side issue

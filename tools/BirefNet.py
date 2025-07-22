@@ -12,7 +12,7 @@ from torchvision.transforms import functional as F
 from dotenv import load_dotenv
 
 # Import utilities from tools package
-from .logger import EVFSAMLogger
+from .logger import EVFSAMLogger as AppLogger
 
 os.environ["TRANSFORMERS_TRUST_REMOTE_CODE"] = "true"
 
@@ -46,7 +46,7 @@ class BiRefNetSegmenter:
         self.model_name = model_name
 
         # Initialize logger
-        self.logger = EVFSAMLogger()
+        self.logger = AppLogger()
         
         # Device setup
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

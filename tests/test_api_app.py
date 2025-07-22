@@ -26,8 +26,8 @@ class TestApiApp(unittest.TestCase):
         """
         Set up the test environment before each test method.
 
-        - Patches external dependencies in api_app (get_env_variable, boto3, EVFSAMSingleImageInferencer,
-          EVFSAMLogger, and load_dotenv) to prevent real AWS/model/logging/dotenv interactions.
+        - Patches external dependencies in api_app (get_env_variable, boto3, AppLogger, 
+          and load_dotenv) to prevent real AWS/model/logging/dotenv interactions.
         - Configures the mocks for S3 client, model inferencer, and logger.
         - Creates the Flask app in testing mode and injects the mock inferencer.
         - Initializes the Flask test client for making requests to the app.
@@ -35,8 +35,6 @@ class TestApiApp(unittest.TestCase):
         # Patch external dependencies for the entire test class
         self.patcher_env = patch('api_app.get_env_variable', self._mock_get_env)
         self.patcher_boto3 = patch('api_app.boto3')
-        self.patcher_inferencer = patch('api_app.EVFSAMSingleImageInferencer')
-        self.patcher_logger = patch('api_app.EVFSAMLogger')
         self.patcher_dotenv = patch('api_app.load_dotenv')
 
         self.mock_get_env = self.patcher_env.start()
@@ -88,7 +86,6 @@ class TestApiApp(unittest.TestCase):
             "AWS_SECRET_ACCESS_KEY": "test_secret_key",
             "AWS_S3_BUCKET_NAME": "test-bucket",
             "AWS_S3_REGION": "us-east-1",
-            "EVFSAM_PROMPT_MODE": "both"
         }.get(key)
 
     def test_health_endpoint(self):
@@ -171,13 +168,13 @@ class TestApiApp(unittest.TestCase):
         Sets the app's INFERENCER config to None to simulate a model loading failure.
         Sends a POST request with a valid 'image_url' and asserts that the response
         status code is 500 (Internal Server Error) and the error message indicates
-        the EVF-SAM model failed to load.
+        the model failed to load.
         """
         # Set the app's inferencer to None to simulate loading failure
         self.app.config['INFERENCER'] = None
         response = self.client.post('/infer', json={'image_url': 'some_url'})
         self.assertEqual(response.status_code, 500)
-        self.assertIn('EVF-SAM model failed to load', response.get_json()['error'])
+        self.assertIn('model failed to load', response.get_json()['error'])
 
     @patch('api_app.Image')
     @patch('api_app.io')
