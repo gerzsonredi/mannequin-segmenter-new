@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from torchvision.models.detection import maskrcnn_resnet50_fpn_v2
 from torchvision.transforms import functional as F
 
-from .logger import EVFSAMLogger
+from .logger import AppLogger
 from .s3_utils import download_evf_sam_from_s3
 
 
@@ -44,7 +44,7 @@ class MaskRCNNSegmenter:
         self.mask_threshold = mask_threshold
 
         # Initialize logger
-        self.logger = EVFSAMLogger()
+        self.logger = AppLogger()
         
         # Force CPU usage to avoid segmentation faults (similar to EVF-SAM)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

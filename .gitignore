@@ -197,4 +197,5 @@ cython_debug/
 artifacts/
 remix-466614-e0eb921f6a64.json
 manual_labeling_result.xlsx
-evfsam_batch_results.pdf
+# Remove EVF-SAM batch results
+# evfsam_batch_results.pdf

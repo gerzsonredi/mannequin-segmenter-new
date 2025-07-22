@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify, current_app
-from tools.logger import EVFSAMLogger as AppLogger
+from tools.logger import AppLogger
 from tools.env_utils import get_env_variable
 import base64
 from PIL import Image
@@ -50,7 +50,7 @@ def create_app(testing=False):
                 model_path="artifacts/20250703_190222/checkpoint.pt",
                 model_name="zhengpeng7/BiRefNet",    # HuggingFace model
                 precision="fp16",                    # fp16, fp32, or bf16
-                mask_threshold=0.1
+                mask_threshold=0.5
             )
             if inferencer is None:
                 print("Error! Couldn't load inferencer!")

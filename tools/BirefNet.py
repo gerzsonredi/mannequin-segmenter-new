@@ -12,7 +12,7 @@ from torchvision.transforms import functional as F
 from dotenv import load_dotenv
 
 # Import utilities from tools package
-from .logger import EVFSAMLogger as AppLogger
+from .logger import AppLogger
 
 os.environ["TRANSFORMERS_TRUST_REMOTE_CODE"] = "true"
 

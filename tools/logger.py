@@ -3,7 +3,7 @@ import boto3
 from datetime import datetime
 from .env_utils import get_env_variable
 
-class EVFSAMLogger:
+class AppLogger:
     """
     Simple logger for EVF-SAM application.
     Logs are saved locally and uploaded to S3 logs-redi bucket.

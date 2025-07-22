@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  evf-sam-api:
+  mannequin-segmenter-api:
     build: .
     ports:
       - "5001:5001"

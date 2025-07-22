@@ -1,6 +1,6 @@
 # GPU-Enabled Cloud Run Deployment Guide
 
-This guide explains how to deploy the Mannequin Segmenter microservice to Google Cloud Run with GPU acceleration for optimal EVF-SAM model performance.
+This guide explains how to deploy the Mannequin Segmenter microservice to Google Cloud Run with GPU acceleration for optimal BiRefNet model performance.
 
 ## 🚀 Quick Start
 
@@ -110,7 +110,7 @@ gcloud run deploy mannequin-segmenter \
   --concurrency 1 \
   --min-instances 0 \
   --max-instances 5 \
-  --set-env-vars="EVFSAM_PROMPT_MODE=both,FLASK_ENV=production,PYTHONPATH=/app,CUDA_VISIBLE_DEVICES=0" \
+  --set-env-vars="FLASK_ENV=production,PYTHONPATH=/app,CUDA_VISIBLE_DEVICES=0" \
   --set-secrets="AWS_ACCESS_KEY_ID=aws-access-key:latest,AWS_SECRET_ACCESS_KEY=aws-secret-key:latest,AWS_S3_BUCKET_NAME=aws-s3-bucket:latest,AWS_S3_REGION=aws-s3-region:latest"
 ```
 
@@ -223,4 +223,4 @@ With scale-to-zero, you only pay when the service is actively processing request
 - [Cloud Run GPU Documentation](https://cloud.google.com/run/docs/configuring/services/gpu)
 - [NVIDIA L4 GPU Specifications](https://www.nvidia.com/en-us/data-center/l4/)
 - [PyTorch CUDA Installation Guide](https://pytorch.org/get-started/locally/)
-- [EVF-SAM Model Documentation](https://github.com/hustvl/EVF-SAM) 
+- [BiRefNet Model Documentation](https://github.com/ZhengPeng7/BiRefNet) 
