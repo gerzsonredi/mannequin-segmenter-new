@@ -56,7 +56,7 @@ jobs:
 
     - name: Deploy to Cloud Run with GPU
       run: |
-        gcloud run deploy ${{ env.SERVICE_NAME }} \
+        echo "y" | gcloud run deploy ${{ env.SERVICE_NAME }} \
           --image ${{ env.GAR_LOCATION }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
           --platform managed \
           --region ${{ env.REGION }} \
