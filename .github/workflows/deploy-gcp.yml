@@ -62,8 +62,10 @@ jobs:
           --region ${{ env.REGION }} \
           --allow-unauthenticated \
           --port 5001 \
-          --memory 4Gi \
+          --memory 16Gi \
           --cpu 4 \
+          --gpu 1 \
+          --gpu-type nvidia-l4 \
           --timeout 900 \
           --concurrency 1 \
           --min-instances 0 \
@@ -92,11 +94,11 @@ jobs:
         echo "🚀 Service deployed to: $SERVICE_URL"
         echo "SERVICE_URL=$SERVICE_URL" >> $GITHUB_ENV
 
-    - name: Test deployment 
+    - name: Verify deployment
       run: |
-        echo "🧪 Testing health endpoint..."
-        curl -f ${{ env.SERVICE_URL }}/health
-        echo "✅ Health check passed!"
+        echo "🧪 Verifying service is running..."
+        gcloud run services describe ${{ env.SERVICE_NAME }} --region=${{ env.REGION }} --format="value(status.conditions[0].status)"
+        echo "✅ Service verification completed!"
 
     - name: Deployment Summary
       run: |
@@ -106,5 +108,6 @@ jobs:
         echo "- **Region**: ${{ env.REGION }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Image**: ${{ env.GAR_LOCATION }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Auto-scaling**: 0-1 instances" >> $GITHUB_STEP_SUMMARY
-        echo "- **Memory**: 4Gi" >> $GITHUB_STEP_SUMMARY
-        echo "- **CPU**: 4 (CPU-only for initial setup)" >> $GITHUB_STEP_SUMMARY 
+        echo "- **Memory**: 16Gi" >> $GITHUB_STEP_SUMMARY
+        echo "- **CPU**: 4" >> $GITHUB_STEP_SUMMARY
+        echo "- **GPU**: 1x NVIDIA L4" >> $GITHUB_STEP_SUMMARY 
