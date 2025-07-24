@@ -75,6 +75,7 @@ jobs:
           --set-env-vars="FLASK_ENV=production" \
           --set-env-vars="PYTHONPATH=/app" \
           --set-env-vars="CUDA_VISIBLE_DEVICES=0" \
+          --set-env-vars="PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True" \
           --set-secrets="AWS_ACCESS_KEY_ID=aws-access-key:latest" \
           --set-secrets="AWS_SECRET_ACCESS_KEY=aws-secret-key:latest" \
           --set-secrets="AWS_S3_BUCKET_NAME=aws-s3-bucket:latest" \

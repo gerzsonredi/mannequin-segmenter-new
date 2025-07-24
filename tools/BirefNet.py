@@ -658,56 +658,51 @@ class BiRefNetSegmenter:
             batch_tensors = []
             original_sizes = []
             
-            # Preprocess all images
+            # Process images sequentially to avoid GPU memory issues
+            self.logger.log(f"Step 2: Processing {len(downloaded_images)} images sequentially...")
+            print(f"Step 2: Processing {len(downloaded_images)} images sequentially...")
+            
             for i, image in enumerate(downloaded_images):
-                original_sizes.append(image.size)
-                
-                # Manual preprocessing to match notebook approach
-                image_resized = image.resize((1024, 1024), Image.LANCZOS)
-                image_tensor = F.to_tensor(image_resized).unsqueeze(0)
-                
-                # Normalize
-                mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
-                std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
-                image_tensor = (image_tensor - mean) / std
-                
-                batch_tensors.append(image_tensor.squeeze(0))
-            
-            # Stack into batch tensor
-            batch_input = torch.stack(batch_tensors).to(self.device).to(self.dtype)
-            
-            self.logger.log(f"Step 2: Running batch inference on {len(batch_tensors)} images...")
-            print(f"Step 2: Running batch inference on {len(batch_tensors)} images...")
-            
-            # Run batch inference
-            with torch.no_grad():
-                if self.precision == "fp16":
-                    with torch.autocast(device_type="cuda", dtype=torch.float16):
-                        batch_preds = self.model(batch_input)[-1]
-                else:
-                    batch_preds = self.model(batch_input)[-1]
-                
-                # Apply sigmoid and move to CPU immediately
-                batch_preds = torch.sigmoid(batch_preds).cpu()
-                
-                # Clear GPU cache to prevent memory leaks
-                torch.cuda.empty_cache()
-                
-                # Delete batch_input to free GPU memory
-                del batch_input
-                gc.collect()  # Force garbage collection
-                
-                if torch.cuda.is_available():
-                    torch.cuda.synchronize()
-            
-            self.logger.log("Step 3: Post-processing batch results...")
-            print("Step 3: Post-processing batch results...")
-            
-            # Post-process each image
-            for i, (pred, original_size, image) in enumerate(zip(batch_preds, original_sizes, downloaded_images)):
                 try:
+                    self.logger.log(f"Processing image {i+1}/{len(downloaded_images)}")
+                    print(f"Processing image {i+1}/{len(downloaded_images)}")
+                    
+                    original_size = image.size
+                    
+                    # Manual preprocessing to match notebook approach
+                    image_resized = image.resize((1024, 1024), Image.LANCZOS)
+                    image_tensor = F.to_tensor(image_resized).unsqueeze(0)
+                    
+                    # Normalize
+                    mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
+                    std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
+                    image_tensor = (image_tensor - mean) / std
+                    
+                    # Move to device
+                    image_input = image_tensor.to(self.device).to(self.dtype)
+                    
+                    # Run inference on single image
+                    with torch.no_grad():
+                        if self.precision == "fp16":
+                            with torch.autocast(device_type="cuda", dtype=torch.float16):
+                                pred = self.model(image_input)[-1]
+                        else:
+                            pred = self.model(image_input)[-1]
+                        
+                        # Apply sigmoid and move to CPU immediately
+                        pred = torch.sigmoid(pred).cpu()
+                        
+                        # Clear GPU memory after each image
+                        del image_input
+                        torch.cuda.empty_cache()
+                        gc.collect()
+                        
+                        if torch.cuda.is_available():
+                            torch.cuda.synchronize()
+                    
+                    # Post-process this image
                     # Resize prediction back to original size
-                    pred_resized = F.resize(pred, original_size[::-1], antialias=True)  # PIL size is (width, height), but tensor expects (height, width)
+                    pred_resized = F.resize(pred, original_size[::-1], antialias=True)
                     
                     # Convert to binary mask
                     pred_mask = (pred_resized.squeeze() > self.mask_threshold).float()
@@ -724,12 +719,12 @@ class BiRefNetSegmenter:
                     
                     processed_images.append(result_img)
                     
-                    self.logger.log(f"Successfully processed image {i+1}/{len(batch_preds)}")
-                    print(f"Successfully processed image {i+1}/{len(batch_preds)}")
+                    self.logger.log(f"Successfully processed image {i+1}/{len(downloaded_images)}")
+                    print(f"Successfully processed image {i+1}/{len(downloaded_images)}")
                     
                 except Exception as e:
-                    self.logger.log(f"Failed to post-process image {i+1}: {str(e)}")
-                    print(f"Failed to post-process image {i+1}: {str(e)}")
+                    self.logger.log(f"Failed to process image {i+1}: {str(e)}")
+                    print(f"Failed to process image {i+1}: {str(e)}")
                     failed_count += 1
                     continue
             
