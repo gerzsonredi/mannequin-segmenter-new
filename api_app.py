@@ -201,8 +201,7 @@ def create_app(testing=False):
             api_logger.log(f"Successfully processed {len(processed_images)} images, uploading to S3...")
             print(f"Successfully processed {len(processed_images)} images, uploading to S3...")
             
-            # Upload all processed images to S3 in parallel
-            
+            # Upload all processed images to S3 in parallel for better performance
             today = datetime.utcnow()
             date_prefix = today.strftime("%Y/%m/%d")
             
@@ -234,8 +233,8 @@ def create_app(testing=False):
                     print(error_msg)
                     return i, None, str(upload_error)
             
-            # Upload images in parallel (max 5 concurrent uploads)
-            with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            # Upload images in parallel (max 3 concurrent to be conservative)
+            with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
                 upload_tasks = [(i, img) for i, img in enumerate(processed_images)]
                 upload_results = list(executor.map(upload_single_image, upload_tasks))
             

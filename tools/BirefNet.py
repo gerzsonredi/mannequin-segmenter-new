@@ -5,6 +5,7 @@ import torch
 import numpy as np
 import requests
 import io
+import gc
 import concurrent.futures
 from pathlib import Path
 from PIL import Image
@@ -581,7 +582,7 @@ class BiRefNetSegmenter:
         print("Finished processing image array")
         return cleaned_img
 
-    def process_batch_urls(self, image_urls, plot=False, max_batch_size=10):
+    def process_batch_urls(self, image_urls, plot=False, max_batch_size=5):
         """
         Process a batch of image URLs efficiently using GPU batching.
         
@@ -612,8 +613,7 @@ class BiRefNetSegmenter:
             downloaded_images = []
             valid_indices = []
             
-            # Parallel image download using threading
-            
+            # Download images in parallel for better performance
             def download_single_image(url_index_pair):
                 i, url = url_index_pair
                 try:
@@ -633,12 +633,12 @@ class BiRefNetSegmenter:
                     print(error_msg)
                     return i, None, str(e)
             
-            # Download images in parallel (max 5 concurrent downloads)
-            with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            # Download images in parallel (max 3 concurrent to be conservative)
+            with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
                 download_tasks = [(i, url) for i, url in enumerate(image_urls)]
                 download_results = list(executor.map(download_single_image, download_tasks))
             
-            # Process download results
+            # Process download results in original order
             for i, image, error in download_results:
                 if image is not None:
                     downloaded_images.append(image)
@@ -687,8 +687,18 @@ class BiRefNetSegmenter:
                 else:
                     batch_preds = self.model(batch_input)[-1]
                 
-                # Apply sigmoid and move to CPU
+                # Apply sigmoid and move to CPU immediately
                 batch_preds = torch.sigmoid(batch_preds).cpu()
+                
+                # Clear GPU cache to prevent memory leaks
+                torch.cuda.empty_cache()
+                
+                # Delete batch_input to free GPU memory
+                del batch_input
+                gc.collect()  # Force garbage collection
+                
+                if torch.cuda.is_available():
+                    torch.cuda.synchronize()
             
             self.logger.log("Step 3: Post-processing batch results...")
             print("Step 3: Post-processing batch results...")
@@ -729,12 +739,23 @@ class BiRefNetSegmenter:
             self.logger.log(f"Batch processing completed: {success_count}/{total_requested} successful, {failed_count} failed")
             print(f"Batch processing completed: {success_count}/{total_requested} successful, {failed_count} failed")
             
+            # Final GPU memory cleanup
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.synchronize()
+            
             return processed_images
             
         except Exception as e:
             error_msg = f"Batch processing failed: {str(e)}"
             self.logger.log(error_msg)
             print(error_msg)
+            
+            # Cleanup GPU memory even on error
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.synchronize()
+            
             return processed_images  # Return whatever we managed to process
     
     def _clean_mask(self, mask):
