@@ -1,0 +1,83 @@
+{
+  "timestamp": "2025-07-24T15:29:16.940764",
+  "test_image": "https://public-images-redivivum.s3.eu-central-1.amazonaws.com/Remix_data/Majka-teniska-Mustang-132434083b.jpg",
+  "test_runs": 5,
+  "successful_runs": 5,
+  "raw_results": [
+    {
+      "run": 1,
+      "download_ms": 306.96702003479004,
+      "total_inference_ms": 3206.998109817505,
+      "processing_ms": 2900.031089782715,
+      "s3_access_ms": 222.37324714660645,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 2,
+      "download_ms": 365.51809310913086,
+      "total_inference_ms": 2487.0340824127197,
+      "processing_ms": 2121.515989303589,
+      "s3_access_ms": 190.22083282470703,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 3,
+      "download_ms": 291.0311222076416,
+      "total_inference_ms": 2591.3736820220947,
+      "processing_ms": 2300.342559814453,
+      "s3_access_ms": 196.69771194458008,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 4,
+      "download_ms": 583.4860801696777,
+      "total_inference_ms": 2446.1169242858887,
+      "processing_ms": 1862.630844116211,
+      "s3_access_ms": 207.51380920410156,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 5,
+      "download_ms": 280.6708812713623,
+      "total_inference_ms": 2735.5690002441406,
+      "processing_ms": 2454.8981189727783,
+      "s3_access_ms": 198.48227500915527,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    }
+  ],
+  "statistics": {
+    "Download (Image URL \u2192 Memory)": {
+      "avg": 365.5346393585205,
+      "min": 280.6708812713623,
+      "max": 583.4860801696777,
+      "median": 306.96702003479004,
+      "stdev": 126.18005821366363
+    },
+    "Processing (Model + S3 Upload)": {
+      "avg": 2327.883720397949,
+      "min": 1862.630844116211,
+      "max": 2900.031089782715,
+      "median": 2300.342559814453,
+      "stdev": 388.35926169945515
+    },
+    "Total Pipeline": {
+      "avg": 2693.4183597564697,
+      "min": 2446.1169242858887,
+      "max": 3206.998109817505,
+      "median": 2591.3736820220947,
+      "stdev": 308.10161568089046
+    },
+    "S3 Result Access": {
+      "avg": 203.05757522583008,
+      "min": 190.22083282470703,
+      "max": 222.37324714660645,
+      "median": 198.48227500915527,
+      "stdev": 12.441024792213227
+    }
+  }
+}

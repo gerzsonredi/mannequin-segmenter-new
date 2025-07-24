@@ -1,0 +1,35 @@
+{
+  "timestamp": "2025-07-24T15:01:18.055218",
+  "test_config": {
+    "concurrent_batches": 2,
+    "batch_size": 1,
+    "total_images": 2,
+    "timeout": 900
+  },
+  "results": {
+    "total_batches": 2,
+    "successful_batches": 0,
+    "batch_success_rate": 0.0,
+    "total_duration_seconds": 3.8273189067840576
+  },
+  "raw_results": [
+    {
+      "batch_id": 1,
+      "success": false,
+      "response_time_ms": 3750.654935836792,
+      "status_code": 500,
+      "error": "{\"error\":\"Failed to process any images in batch\"}\n",
+      "batch_size": 5,
+      "timestamp": "2025-07-24T15:01:17.977629"
+    },
+    {
+      "batch_id": 2,
+      "success": false,
+      "response_time_ms": 3827.0938396453857,
+      "status_code": 500,
+      "error": "{\"error\":\"Failed to process any images in batch\"}\n",
+      "batch_size": 5,
+      "timestamp": "2025-07-24T15:01:18.053802"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "timestamp": "2025-07-24T15:21:26.719181",
+  "test_config": {
+    "concurrent_batches": 1,
+    "batch_size": 1,
+    "total_images": 1,
+    "timeout": 900
+  },
+  "results": {
+    "total_batches": 1,
+    "successful_batches": 0,
+    "batch_success_rate": 0.0,
+    "total_duration_seconds": 2.3495450019836426
+  },
+  "raw_results": [
+    {
+      "batch_id": 1,
+      "success": false,
+      "response_time_ms": 2349.048852920532,
+      "status_code": 500,
+      "error": "{\"error\":\"Failed to process any images in batch\"}\n",
+      "batch_size": 5,
+      "timestamp": "2025-07-24T15:21:26.718155"
+    }
+  ]
+}

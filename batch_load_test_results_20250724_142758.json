@@ -1,0 +1,107 @@
+{
+  "timestamp": "2025-07-24T14:27:58.104354",
+  "test_config": {
+    "concurrent_batches": 10,
+    "batch_size": 10,
+    "total_images": 100,
+    "timeout": 900
+  },
+  "results": {
+    "total_batches": 10,
+    "successful_batches": 0,
+    "batch_success_rate": 0.0,
+    "total_duration_seconds": 17.321035146713257
+  },
+  "raw_results": [
+    {
+      "batch_id": 2,
+      "success": false,
+      "response_time_ms": 5679.789781570435,
+      "status_code": 500,
+      "error": "{\"error\":\"Failed to process any images in batch\"}\n",
+      "batch_size": 10,
+      "timestamp": "2025-07-24T14:27:46.462985"
+    },
+    {
+      "batch_id": 8,
+      "success": false,
+      "response_time_ms": 6525.830984115601,
+      "status_code": 500,
+      "error": "{\"error\":\"Failed to process any images in batch\"}\n",
+      "batch_size": 10,
+      "timestamp": "2025-07-24T14:27:47.309329"
+    },
+    {
+      "batch_id": 5,
+      "success": false,
+      "response_time_ms": 7083.71901512146,
+      "status_code": 500,
+      "error": "{\"error\":\"Failed to process any images in batch\"}\n",
+      "batch_size": 10,
+      "timestamp": "2025-07-24T14:27:47.867083"
+    },
+    {
+      "batch_id": 4,
+      "success": false,
+      "response_time_ms": 7820.346117019653,
+      "status_code": 500,
+      "error": "{\"error\":\"Failed to process any images in batch\"}\n",
+      "batch_size": 10,
+      "timestamp": "2025-07-24T14:27:48.603994"
+    },
+    {
+      "batch_id": 7,
+      "success": false,
+      "response_time_ms": 8630.147218704224,
+      "status_code": 500,
+      "error": "{\"error\":\"Failed to process any images in batch\"}\n",
+      "batch_size": 10,
+      "timestamp": "2025-07-24T14:27:49.413984"
+    },
+    {
+      "batch_id": 10,
+      "success": false,
+      "response_time_ms": 9519.42491531372,
+      "status_code": 500,
+      "error": "{\"error\":\"Failed to process any images in batch\"}\n",
+      "batch_size": 10,
+      "timestamp": "2025-07-24T14:27:50.302413"
+    },
+    {
+      "batch_id": 3,
+      "success": false,
+      "response_time_ms": 9539.759874343872,
+      "status_code": 500,
+      "error": "{\"error\":\"Failed to process any images in batch\"}\n",
+      "batch_size": 10,
+      "timestamp": "2025-07-24T14:27:50.324012"
+    },
+    {
+      "batch_id": 1,
+      "success": false,
+      "response_time_ms": 11102.032899856567,
+      "status_code": 500,
+      "error": "{\"error\":\"Failed to process any images in batch\"}\n",
+      "batch_size": 10,
+      "timestamp": "2025-07-24T14:27:51.886029"
+    },
+    {
+      "batch_id": 9,
+      "success": false,
+      "response_time_ms": 14171.94390296936,
+      "status_code": 500,
+      "error": "{\"error\":\"Failed to process any images in batch\"}\n",
+      "batch_size": 10,
+      "timestamp": "2025-07-24T14:27:54.954718"
+    },
+    {
+      "batch_id": 6,
+      "success": false,
+      "response_time_ms": 17320.662021636963,
+      "status_code": 500,
+      "error": "{\"error\":\"Failed to process any images in batch\"}\n",
+      "batch_size": 10,
+      "timestamp": "2025-07-24T14:27:58.103070"
+    }
+  ]
+}

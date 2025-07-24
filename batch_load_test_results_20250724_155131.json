@@ -1,0 +1,71 @@
+{
+  "timestamp": "2025-07-24T15:51:31.112915",
+  "test_config": {
+    "concurrent_batches": 6,
+    "batch_size": 3,
+    "total_images": 18,
+    "timeout": 900
+  },
+  "results": {
+    "total_batches": 6,
+    "successful_batches": 0,
+    "batch_success_rate": 0.0,
+    "total_duration_seconds": 8.657862901687622
+  },
+  "raw_results": [
+    {
+      "batch_id": 1,
+      "success": false,
+      "response_time_ms": 2587.9311561584473,
+      "status_code": 500,
+      "error": "{\"error\":\"Failed to process any images in batch\"}\n",
+      "batch_size": 3,
+      "timestamp": "2025-07-24T15:51:25.042880"
+    },
+    {
+      "batch_id": 2,
+      "success": false,
+      "response_time_ms": 4394.093990325928,
+      "status_code": 500,
+      "error": "{\"error\":\"Failed to process any images in batch\"}\n",
+      "batch_size": 3,
+      "timestamp": "2025-07-24T15:51:26.848467"
+    },
+    {
+      "batch_id": 4,
+      "success": false,
+      "response_time_ms": 5352.811098098755,
+      "status_code": 500,
+      "error": "{\"error\":\"Failed to process any images in batch\"}\n",
+      "batch_size": 3,
+      "timestamp": "2025-07-24T15:51:27.807586"
+    },
+    {
+      "batch_id": 5,
+      "success": false,
+      "response_time_ms": 5909.257888793945,
+      "status_code": 500,
+      "error": "{\"error\":\"Failed to process any images in batch\"}\n",
+      "batch_size": 3,
+      "timestamp": "2025-07-24T15:51:28.363854"
+    },
+    {
+      "batch_id": 3,
+      "success": false,
+      "response_time_ms": 8526.872158050537,
+      "status_code": 500,
+      "error": "{\"error\":\"Failed to process any images in batch\"}\n",
+      "batch_size": 3,
+      "timestamp": "2025-07-24T15:51:30.981923"
+    },
+    {
+      "batch_id": 6,
+      "success": false,
+      "response_time_ms": 8657.44686126709,
+      "status_code": 500,
+      "error": "{\"error\":\"Failed to process any images in batch\"}\n",
+      "batch_size": 3,
+      "timestamp": "2025-07-24T15:51:31.111419"
+    }
+  ]
+}

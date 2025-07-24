@@ -1,0 +1,488 @@
+{
+  "timestamp": "2025-07-24T15:36:20.262227",
+  "test_image": "https://public-images-redivivum.s3.eu-central-1.amazonaws.com/Remix_data/Majka-teniska-Mustang-132434083b.jpg",
+  "test_runs": 50,
+  "successful_runs": 50,
+  "raw_results": [
+    {
+      "run": 1,
+      "download_ms": 339.28608894348145,
+      "total_inference_ms": 6449.318885803223,
+      "processing_ms": 6110.032796859741,
+      "s3_access_ms": 197.17717170715332,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 2,
+      "download_ms": 352.36310958862305,
+      "total_inference_ms": 9477.192163467407,
+      "processing_ms": 9124.829053878784,
+      "s3_access_ms": 212.64123916625977,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 3,
+      "download_ms": 293.590784072876,
+      "total_inference_ms": 5545.217990875244,
+      "processing_ms": 5251.627206802368,
+      "s3_access_ms": 188.76314163208008,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 4,
+      "download_ms": 252.04801559448242,
+      "total_inference_ms": 7765.81335067749,
+      "processing_ms": 7513.765335083008,
+      "s3_access_ms": 269.9611186981201,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 5,
+      "download_ms": 314.5737648010254,
+      "total_inference_ms": 4302.114009857178,
+      "processing_ms": 3987.5402450561523,
+      "s3_access_ms": 208.9378833770752,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 6,
+      "download_ms": 350.8119583129883,
+      "total_inference_ms": 7118.201017379761,
+      "processing_ms": 6767.3890590667725,
+      "s3_access_ms": 203.54604721069336,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 7,
+      "download_ms": 256.3600540161133,
+      "total_inference_ms": 8943.40991973877,
+      "processing_ms": 8687.049865722656,
+      "s3_access_ms": 275.9108543395996,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 8,
+      "download_ms": 273.03290367126465,
+      "total_inference_ms": 5445.58310508728,
+      "processing_ms": 5172.550201416016,
+      "s3_access_ms": 197.09491729736328,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 9,
+      "download_ms": 253.79395484924316,
+      "total_inference_ms": 5172.800064086914,
+      "processing_ms": 4919.006109237671,
+      "s3_access_ms": 205.28292655944824,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 10,
+      "download_ms": 242.70009994506836,
+      "total_inference_ms": 6482.693910598755,
+      "processing_ms": 6239.9938106536865,
+      "s3_access_ms": 195.79219818115234,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 11,
+      "download_ms": 280.39002418518066,
+      "total_inference_ms": 6302.002906799316,
+      "processing_ms": 6021.612882614136,
+      "s3_access_ms": 188.41099739074707,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 12,
+      "download_ms": 249.98712539672852,
+      "total_inference_ms": 5190.060138702393,
+      "processing_ms": 4940.073013305664,
+      "s3_access_ms": 176.55587196350098,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 13,
+      "download_ms": 305.37915229797363,
+      "total_inference_ms": 3439.7408962249756,
+      "processing_ms": 3134.361743927002,
+      "s3_access_ms": 204.37884330749512,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 14,
+      "download_ms": 286.52191162109375,
+      "total_inference_ms": 7457.04197883606,
+      "processing_ms": 7170.520067214966,
+      "s3_access_ms": 239.2721176147461,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 15,
+      "download_ms": 226.65762901306152,
+      "total_inference_ms": 11347.005128860474,
+      "processing_ms": 11120.347499847412,
+      "s3_access_ms": 206.73584938049316,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 16,
+      "download_ms": 257.6777935028076,
+      "total_inference_ms": 5515.537977218628,
+      "processing_ms": 5257.86018371582,
+      "s3_access_ms": 181.72597885131836,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 17,
+      "download_ms": 285.11881828308105,
+      "total_inference_ms": 5570.093154907227,
+      "processing_ms": 5284.9743366241455,
+      "s3_access_ms": 181.21600151062012,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 18,
+      "download_ms": 222.30124473571777,
+      "total_inference_ms": 7625.291109085083,
+      "processing_ms": 7402.989864349365,
+      "s3_access_ms": 743.9711093902588,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 19,
+      "download_ms": 526.515007019043,
+      "total_inference_ms": 4667.754888534546,
+      "processing_ms": 4141.239881515503,
+      "s3_access_ms": 193.35699081420898,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 20,
+      "download_ms": 260.88500022888184,
+      "total_inference_ms": 11876.935005187988,
+      "processing_ms": 11616.050004959106,
+      "s3_access_ms": 208.9097499847412,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 21,
+      "download_ms": 267.44794845581055,
+      "total_inference_ms": 8722.98002243042,
+      "processing_ms": 8455.53207397461,
+      "s3_access_ms": 191.56503677368164,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 22,
+      "download_ms": 259.8137855529785,
+      "total_inference_ms": 6929.594993591309,
+      "processing_ms": 6669.78120803833,
+      "s3_access_ms": 179.2283058166504,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 23,
+      "download_ms": 324.1541385650635,
+      "total_inference_ms": 9477.96607017517,
+      "processing_ms": 9153.811931610107,
+      "s3_access_ms": 179.78382110595703,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 24,
+      "download_ms": 500.43702125549316,
+      "total_inference_ms": 6195.173978805542,
+      "processing_ms": 5694.736957550049,
+      "s3_access_ms": 222.74112701416016,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 25,
+      "download_ms": 225.45719146728516,
+      "total_inference_ms": 14112.06030845642,
+      "processing_ms": 13886.603116989136,
+      "s3_access_ms": 178.33185195922852,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 26,
+      "download_ms": 317.8901672363281,
+      "total_inference_ms": 3670.4719066619873,
+      "processing_ms": 3352.581739425659,
+      "s3_access_ms": 197.92604446411133,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 27,
+      "download_ms": 259.448766708374,
+      "total_inference_ms": 5852.723836898804,
+      "processing_ms": 5593.27507019043,
+      "s3_access_ms": 194.85211372375488,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 28,
+      "download_ms": 254.01067733764648,
+      "total_inference_ms": 5564.645051956177,
+      "processing_ms": 5310.63437461853,
+      "s3_access_ms": 192.87109375,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 29,
+      "download_ms": 467.1638011932373,
+      "total_inference_ms": 7279.685735702515,
+      "processing_ms": 6812.521934509277,
+      "s3_access_ms": 208.43768119812012,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 30,
+      "download_ms": 286.9889736175537,
+      "total_inference_ms": 3236.4940643310547,
+      "processing_ms": 2949.505090713501,
+      "s3_access_ms": 423.28906059265137,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 31,
+      "download_ms": 260.5719566345215,
+      "total_inference_ms": 8971.667289733887,
+      "processing_ms": 8711.095333099365,
+      "s3_access_ms": 202.52490043640137,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 32,
+      "download_ms": 314.27884101867676,
+      "total_inference_ms": 5230.51905632019,
+      "processing_ms": 4916.240215301514,
+      "s3_access_ms": 208.0090045928955,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 33,
+      "download_ms": 285.08615493774414,
+      "total_inference_ms": 6351.529121398926,
+      "processing_ms": 6066.442966461182,
+      "s3_access_ms": 215.99483489990234,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 34,
+      "download_ms": 244.20404434204102,
+      "total_inference_ms": 5039.546966552734,
+      "processing_ms": 4795.342922210693,
+      "s3_access_ms": 218.13392639160156,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 35,
+      "download_ms": 253.30519676208496,
+      "total_inference_ms": 5421.13995552063,
+      "processing_ms": 5167.834758758545,
+      "s3_access_ms": 330.272912979126,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 36,
+      "download_ms": 286.12518310546875,
+      "total_inference_ms": 6038.658142089844,
+      "processing_ms": 5752.532958984375,
+      "s3_access_ms": 213.4389877319336,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 37,
+      "download_ms": 281.6052436828613,
+      "total_inference_ms": 5147.391080856323,
+      "processing_ms": 4865.785837173462,
+      "s3_access_ms": 171.4639663696289,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 38,
+      "download_ms": 278.58805656433105,
+      "total_inference_ms": 12987.797021865845,
+      "processing_ms": 12709.208965301514,
+      "s3_access_ms": 192.54493713378906,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 39,
+      "download_ms": 320.8942413330078,
+      "total_inference_ms": 4059.433937072754,
+      "processing_ms": 3738.539695739746,
+      "s3_access_ms": 202.5752067565918,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 40,
+      "download_ms": 261.71207427978516,
+      "total_inference_ms": 3446.7380046844482,
+      "processing_ms": 3185.025930404663,
+      "s3_access_ms": 209.22589302062988,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 41,
+      "download_ms": 259.8540782928467,
+      "total_inference_ms": 4730.962753295898,
+      "processing_ms": 4471.108675003052,
+      "s3_access_ms": 172.23095893859863,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 42,
+      "download_ms": 262.12215423583984,
+      "total_inference_ms": 12254.866123199463,
+      "processing_ms": 11992.743968963623,
+      "s3_access_ms": 265.4268741607666,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 43,
+      "download_ms": 618.994951248169,
+      "total_inference_ms": 3732.113838195801,
+      "processing_ms": 3113.118886947632,
+      "s3_access_ms": 311.2750053405762,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 44,
+      "download_ms": 579.8571109771729,
+      "total_inference_ms": 3871.748685836792,
+      "processing_ms": 3291.891574859619,
+      "s3_access_ms": 158.05888175964355,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 45,
+      "download_ms": 246.06800079345703,
+      "total_inference_ms": 5293.288946151733,
+      "processing_ms": 5047.220945358276,
+      "s3_access_ms": 383.9712142944336,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 46,
+      "download_ms": 305.94825744628906,
+      "total_inference_ms": 5254.816055297852,
+      "processing_ms": 4948.8677978515625,
+      "s3_access_ms": 196.6550350189209,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 47,
+      "download_ms": 269.69385147094727,
+      "total_inference_ms": 3635.6396675109863,
+      "processing_ms": 3365.945816040039,
+      "s3_access_ms": 195.6920623779297,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 48,
+      "download_ms": 254.76694107055664,
+      "total_inference_ms": 6175.493955612183,
+      "processing_ms": 5920.727014541626,
+      "s3_access_ms": 180.93609809875488,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 49,
+      "download_ms": 282.69195556640625,
+      "total_inference_ms": 6792.999029159546,
+      "processing_ms": 6510.30707359314,
+      "s3_access_ms": 168.2419776916504,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 50,
+      "download_ms": 299.3936538696289,
+      "total_inference_ms": 6842.798233032227,
+      "processing_ms": 6543.404579162598,
+      "s3_access_ms": 203.6910057067871,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    }
+  ],
+  "statistics": {
+    "Download (Image URL \u2192 Memory)": {
+      "avg": 303.17137718200684,
+      "min": 222.30124473571777,
+      "max": 618.994951248169,
+      "median": 279.48904037475586,
+      "stdev": 86.54508275088153
+    },
+    "Processing (Model + S3 Upload)": {
+      "avg": 6257.123651504517,
+      "min": 2949.505090713501,
+      "max": 13886.603116989136,
+      "median": 5644.006013870239,
+      "stdev": 2586.7673990702365
+    },
+    "Total Pipeline": {
+      "avg": 6560.295028686523,
+      "min": 3236.4940643310547,
+      "max": 14112.06030845642,
+      "median": 5945.690989494324,
+      "stdev": 2561.615538292337
+    },
+    "S3 Result Access": {
+      "avg": 224.98061656951904,
+      "min": 158.05888175964355,
+      "max": 743.9711093902588,
+      "median": 202.55005359649658,
+      "stdev": 90.80509121841108
+    }
+  }
+}

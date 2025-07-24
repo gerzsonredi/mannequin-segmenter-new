@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"name": "mannequin-segmenter",
+			"path": "."
+		},
+		{
+			"name": "scripts",
+			"path": "../../mannuqin_backup/scripts"
+		}
+	],
+	"settings": {}
+}

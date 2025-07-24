@@ -1,0 +1,128 @@
+{
+  "timestamp": "2025-07-24T15:44:30.968051",
+  "test_image": "https://public-images-redivivum.s3.eu-central-1.amazonaws.com/Remix_data/Majka-teniska-Mustang-132434083b.jpg",
+  "test_runs": 10,
+  "successful_runs": 10,
+  "raw_results": [
+    {
+      "run": 1,
+      "download_ms": 277.2679328918457,
+      "total_inference_ms": 4628.030061721802,
+      "processing_ms": 4350.762128829956,
+      "s3_access_ms": 199.48220252990723,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 2,
+      "download_ms": 270.78914642333984,
+      "total_inference_ms": 3286.2792015075684,
+      "processing_ms": 3015.4900550842285,
+      "s3_access_ms": 340.79813957214355,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 3,
+      "download_ms": 495.0079917907715,
+      "total_inference_ms": 7549.720048904419,
+      "processing_ms": 7054.7120571136475,
+      "s3_access_ms": 210.0358009338379,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 4,
+      "download_ms": 264.47200775146484,
+      "total_inference_ms": 3504.6260356903076,
+      "processing_ms": 3240.154027938843,
+      "s3_access_ms": 168.56002807617188,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 5,
+      "download_ms": 241.24693870544434,
+      "total_inference_ms": 12876.626014709473,
+      "processing_ms": 12635.379076004028,
+      "s3_access_ms": 237.84422874450684,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 6,
+      "download_ms": 309.7870349884033,
+      "total_inference_ms": 4148.0278968811035,
+      "processing_ms": 3838.2408618927,
+      "s3_access_ms": 195.5740451812744,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 7,
+      "download_ms": 297.79505729675293,
+      "total_inference_ms": 6091.65096282959,
+      "processing_ms": 5793.855905532837,
+      "s3_access_ms": 225.05497932434082,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 8,
+      "download_ms": 278.18918228149414,
+      "total_inference_ms": 6018.489837646484,
+      "processing_ms": 5740.30065536499,
+      "s3_access_ms": 175.43315887451172,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 9,
+      "download_ms": 229.07304763793945,
+      "total_inference_ms": 7646.626949310303,
+      "processing_ms": 7417.553901672363,
+      "s3_access_ms": 204.23412322998047,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    },
+    {
+      "run": 10,
+      "download_ms": 261.49773597717285,
+      "total_inference_ms": 3743.575096130371,
+      "processing_ms": 3482.0773601531982,
+      "s3_access_ms": 198.52399826049805,
+      "image_size_kb": 71.3466796875,
+      "success": true
+    }
+  ],
+  "statistics": {
+    "Download (Image URL \u2192 Memory)": {
+      "avg": 292.5126075744629,
+      "min": 229.07304763793945,
+      "max": 495.0079917907715,
+      "median": 274.0285396575928,
+      "stdev": 75.01192808651051
+    },
+    "Processing (Model + S3 Upload)": {
+      "avg": 5656.852602958679,
+      "min": 3015.4900550842285,
+      "max": 12635.379076004028,
+      "median": 5045.531392097473,
+      "stdev": 2912.420562466765
+    },
+    "Total Pipeline": {
+      "avg": 5949.365210533142,
+      "min": 3286.2792015075684,
+      "max": 12876.626014709473,
+      "median": 5323.259949684143,
+      "stdev": 2913.16605475876
+    },
+    "S3 Result Access": {
+      "avg": 215.55407047271729,
+      "min": 168.56002807617188,
+      "max": 340.79813957214355,
+      "median": 201.85816287994385,
+      "stdev": 48.53114126375487
+    }
+  }
+}

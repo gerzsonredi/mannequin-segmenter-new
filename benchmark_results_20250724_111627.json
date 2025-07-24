@@ -1,0 +1,70 @@
+{
+  "timestamp": "2025-07-24T11:16:13.767626",
+  "service_url": "https://mannequin-segmenter-o4c5wdhnoa-ez.a.run.app",
+  "health_check": {
+    "avg_ms": 495.59831619262695,
+    "min_ms": 471.97484970092773,
+    "max_ms": 516.9141292572021,
+    "success_rate": 1.0
+  },
+  "image_downloads": [
+    {
+      "avg_download_ms": 295.4494158426921,
+      "min_download_ms": 250.66804885864258,
+      "max_download_ms": 342.5462245941162,
+      "avg_size_kb": 71.3466796875,
+      "success_rate": 1.0,
+      "image_index": 0,
+      "image_url": "https://public-images-redivivum.s3.eu-central-1.amazonaws.com/Remix_data/Majka-teniska-Mustang-132434083b.jpg"
+    },
+    {
+      "error": "All downloads failed",
+      "image_index": 1,
+      "image_url": "https://public-images-redivivum.s3.eu-central-1.amazonaws.com/Remix_data/DKB-Ruha-Midi-Kokt\u00e9lruha-Lila-Ujjatlan-Megk\u00f6t\u0151s-Maxi-Alkalmi-132434085.jpg"
+    },
+    {
+      "error": "All downloads failed",
+      "image_index": 2,
+      "image_url": "https://public-images-redivivum.s3.eu-central-1.amazonaws.com/Remix_data/F\u00e9rfi-Cip\u0151-Adidas-Stan-Smith-Feh\u00e9r-B\u00e9zs-132434086.jpg"
+    }
+  ],
+  "inferences": [
+    {
+      "success": true,
+      "total_inference_ms": 2478.6298274993896,
+      "s3_access_ms": 251.43790245056152,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/24/c2aec6ec-eb60-4c5b-a3b6-81681e1a7385.jpg",
+      "status_code": 200,
+      "image_index": 0,
+      "image_url": "https://public-images-redivivum.s3.eu-central-1.amazonaws.com/Remix_data/Majka-teniska-Mustang-132434083b.jpg"
+    },
+    {
+      "success": false,
+      "total_inference_ms": 709.7632884979248,
+      "status_code": 500,
+      "error": "{\"error\":\"Failed to process image\"}\n",
+      "image_index": 1,
+      "image_url": "https://public-images-redivivum.s3.eu-central-1.amazonaws.com/Remix_data/DKB-Ruha-Midi-Kokt\u00e9lruha-Lila-Ujjatlan-Megk\u00f6t\u0151s-Maxi-Alkalmi-132434085.jpg"
+    },
+    {
+      "success": false,
+      "total_inference_ms": 726.5887260437012,
+      "status_code": 500,
+      "error": "{\"error\":\"Failed to process image\"}\n",
+      "image_index": 2,
+      "image_url": "https://public-images-redivivum.s3.eu-central-1.amazonaws.com/Remix_data/F\u00e9rfi-Cip\u0151-Adidas-Stan-Smith-Feh\u00e9r-B\u00e9zs-132434086.jpg"
+    }
+  ],
+  "summary": {
+    "total_tests": 3,
+    "successful_inferences": 1,
+    "success_rate": 0.3333333333333333,
+    "avg_inference_ms": 2478.6298274993896,
+    "min_inference_ms": 2478.6298274993896,
+    "max_inference_ms": 2478.6298274993896,
+    "median_inference_ms": 2478.6298274993896,
+    "avg_download_ms": 295.4494158426921,
+    "min_download_ms": 295.4494158426921,
+    "max_download_ms": 295.4494158426921
+  }
+}
