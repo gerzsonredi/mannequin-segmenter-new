@@ -6,6 +6,7 @@ from PIL import Image
 import io
 import numpy as np
 import boto3
+import concurrent.futures
 from dotenv import load_dotenv
 import os
 import uuid
@@ -200,12 +201,13 @@ def create_app(testing=False):
             api_logger.log(f"Successfully processed {len(processed_images)} images, uploading to S3...")
             print(f"Successfully processed {len(processed_images)} images, uploading to S3...")
             
-            # Upload all processed images to S3
-            s3_urls = []
+            # Upload all processed images to S3 in parallel
+            
             today = datetime.utcnow()
             date_prefix = today.strftime("%Y/%m/%d")
             
-            for i, processed_img in enumerate(processed_images):
+            def upload_single_image(img_index_pair):
+                i, processed_img = img_index_pair
                 try:
                     # Convert to PIL and upload
                     vis_pil = Image.fromarray(processed_img.astype(np.uint8))
@@ -224,12 +226,23 @@ def create_app(testing=False):
                     )
 
                     s3_url = f"https://{aws_s3_bucket_name}.s3.{aws_s3_region}.amazonaws.com/{s3_key}"
-                    s3_urls.append(s3_url)
+                    return i, s3_url, None
                     
                 except Exception as upload_error:
-                    api_logger.log(f"Error uploading image {i}: {upload_error}")
-                    print(f"Error uploading image {i}: {upload_error}")
-                    s3_urls.append(None)  # Mark failed upload
+                    error_msg = f"Error uploading image {i}: {upload_error}"
+                    api_logger.log(error_msg)
+                    print(error_msg)
+                    return i, None, str(upload_error)
+            
+            # Upload images in parallel (max 5 concurrent uploads)
+            with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+                upload_tasks = [(i, img) for i, img in enumerate(processed_images)]
+                upload_results = list(executor.map(upload_single_image, upload_tasks))
+            
+            # Build s3_urls list in correct order
+            s3_urls = [None] * len(processed_images)
+            for i, s3_url, error in upload_results:
+                s3_urls[i] = s3_url
             
             successful_uploads = [url for url in s3_urls if url is not None]
             

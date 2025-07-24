@@ -5,6 +5,7 @@ import torch
 import numpy as np
 import requests
 import io
+import concurrent.futures
 from pathlib import Path
 from PIL import Image
 import matplotlib.pyplot as plt
@@ -611,7 +612,10 @@ class BiRefNetSegmenter:
             downloaded_images = []
             valid_indices = []
             
-            for i, url in enumerate(image_urls):
+            # Parallel image download using threading
+            
+            def download_single_image(url_index_pair):
+                i, url = url_index_pair
                 try:
                     self.logger.log(f"Downloading image {i+1}/{len(image_urls)}: {url}")
                     print(f"Downloading image {i+1}/{len(image_urls)}: {url}")
@@ -621,14 +625,26 @@ class BiRefNetSegmenter:
                     
                     # Convert to PIL Image
                     image = Image.open(io.BytesIO(response.content)).convert("RGB")
-                    downloaded_images.append(image)
-                    valid_indices.append(i)
+                    return i, image, None
                     
                 except Exception as e:
-                    self.logger.log(f"Failed to download image {i+1}: {str(e)}")
-                    print(f"Failed to download image {i+1}: {str(e)}")
+                    error_msg = f"Failed to download image {i+1}: {str(e)}"
+                    self.logger.log(error_msg)
+                    print(error_msg)
+                    return i, None, str(e)
+            
+            # Download images in parallel (max 5 concurrent downloads)
+            with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+                download_tasks = [(i, url) for i, url in enumerate(image_urls)]
+                download_results = list(executor.map(download_single_image, download_tasks))
+            
+            # Process download results
+            for i, image, error in download_results:
+                if image is not None:
+                    downloaded_images.append(image)
+                    valid_indices.append(i)
+                else:
                     failed_count += 1
-                    continue
             
             if not downloaded_images:
                 self.logger.log("No images successfully downloaded")

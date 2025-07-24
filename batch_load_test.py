@@ -36,6 +36,14 @@ BATCH_SIZE = 10  # Images per batch
 CONCURRENT_BATCHES = 10  # Number of concurrent batch requests (100 total images)
 TIMEOUT = 900  # 15 minutes for batch processing
 
+# Performance expectations
+EXPECTED_IMPROVEMENTS = {
+    "parallel_downloads": "5x faster image downloads (5 concurrent)",
+    "batch_inference": "GPU optimization for 10 images at once", 
+    "parallel_uploads": "5x faster S3 uploads (5 concurrent)",
+    "total_speedup": "Expected 3-5x improvement vs sequential processing"
+}
+
 async def test_health_check():
     """Test if the service is healthy before running batch tests."""
     try:
