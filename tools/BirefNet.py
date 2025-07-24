@@ -605,9 +605,9 @@ class BiRefNetSegmenter:
         print("Finished processing image array")
         return cleaned_img
 
-    def process_batch_urls(self, image_urls, plot=False, max_batch_size=5):
+    def process_batch_urls(self, image_urls, plot=False, max_batch_size=20):
         """
-        Process a batch of image URLs efficiently using GPU batching.
+        Process a batch of image URLs using proven single image processing.
         
         Args:
             image_urls: List of image URLs to process
@@ -681,69 +681,29 @@ class BiRefNetSegmenter:
             batch_tensors = []
             original_sizes = []
             
-            # Process images sequentially to avoid GPU memory issues
-            self.logger.log(f"Step 2: Processing {len(downloaded_images)} images sequentially...")
-            print(f"Step 2: Processing {len(downloaded_images)} images sequentially...")
+            # Process images using proven single image processing method
+            self.logger.log(f"Step 2: Processing {len(downloaded_images)} images using single processing...")
+            print(f"Step 2: Processing {len(downloaded_images)} images using single processing...")
             
             for i, image in enumerate(downloaded_images):
                 try:
                     self.logger.log(f"Processing image {i+1}/{len(downloaded_images)}")
                     print(f"Processing image {i+1}/{len(downloaded_images)}")
                     
-                    original_size = image.size
+                    # Convert PIL image to numpy array (BGR format for BiRefNet)
+                    image_np = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
                     
-                    # Manual preprocessing to match notebook approach
-                    image_resized = image.resize((1024, 1024), Image.LANCZOS)
-                    image_tensor = F.to_tensor(image_resized).unsqueeze(0)
+                    # Use the proven single image processing method
+                    result_img = self.process_image_array(image_np, plot=False)
                     
-                    # Normalize
-                    mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
-                    std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
-                    image_tensor = (image_tensor - mean) / std
-                    
-                    # Move to device
-                    image_input = image_tensor.to(self.device).to(self.dtype)
-                    
-                    # Run inference on single image
-                    with torch.no_grad():
-                        if self.precision == "fp16":
-                            with torch.autocast(device_type="cuda", dtype=torch.float16):
-                                pred = self.model(image_input)[-1]
-                        else:
-                            pred = self.model(image_input)[-1]
-                        
-                        # Apply sigmoid and move to CPU immediately
-                        pred = torch.sigmoid(pred).cpu()
-                        
-                        # Clear GPU memory after each image
-                        del image_input
-                        torch.cuda.empty_cache()
-                        gc.collect()
-                        
-                        if torch.cuda.is_available():
-                            torch.cuda.synchronize()
-                    
-                    # Post-process this image
-                    # Resize prediction back to original size
-                    pred_resized = F.resize(pred, original_size[::-1], antialias=True)
-                    
-                    # Convert to binary mask
-                    pred_mask = (pred_resized.squeeze() > self.mask_threshold).float()
-                    
-                    # Convert to numpy
-                    mask_np = pred_mask.numpy()
-                    image_np = np.array(image)
-                    
-                    # Apply cleaning (remove thin artifacts)
-                    cleaned_mask = self._clean_mask(mask_np)
-                    
-                    # Create clothing-preserved result (white background, clothing visible)
-                    result_img = self._create_clothing_preserved_result(image_np, cleaned_mask)
-                    
-                    processed_images.append(result_img)
-                    
-                    self.logger.log(f"Successfully processed image {i+1}/{len(downloaded_images)}")
-                    print(f"Successfully processed image {i+1}/{len(downloaded_images)}")
+                    if result_img is not None:
+                        processed_images.append(result_img)
+                        self.logger.log(f"Successfully processed image {i+1}/{len(downloaded_images)}")
+                        print(f"Successfully processed image {i+1}/{len(downloaded_images)}")
+                    else:
+                        self.logger.log(f"Failed to process image {i+1}: process_image_array returned None")
+                        print(f"Failed to process image {i+1}: process_image_array returned None")
+                        failed_count += 1
                     
                 except Exception as e:
                     self.logger.log(f"Failed to process image {i+1}: {str(e)}")
