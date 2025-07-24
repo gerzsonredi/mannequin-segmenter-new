@@ -219,6 +219,11 @@ class BiRefNetSegmenter:
                 self.logger.log(f"Inference output shape: {mask.shape}, dtype: {mask.dtype}")
                 print(f"Inference output shape: {mask.shape}, dtype: {mask.dtype}")
                 
+                # GPU memory cleanup after inference
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                    torch.cuda.synchronize()
+                
                 return mask
                 
             except Exception as e:
@@ -235,6 +240,12 @@ class BiRefNetSegmenter:
                         if hasattr(item, 'shape'):
                             self.logger.log(f"Item {i} shape: {item.shape}")
                             print(f"Item {i} shape: {item.shape}")
+                
+                # GPU memory cleanup even on error
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                    torch.cuda.synchronize()
+                    
                 raise
 
     def _extract_mannequin_masks(self, mask_tensor: torch.Tensor, img_shape: tuple) -> np.ndarray:
@@ -511,6 +522,12 @@ class BiRefNetSegmenter:
         if os.path.exists(fname):
             os.remove(fname)
             
+        # GPU memory cleanup after processing
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            gc.collect()
+            torch.cuda.synchronize()
+            
         msg = f"Finished processing image from URL: {image_url}"
         self.logger.log(msg)
         print(msg)
@@ -577,6 +594,12 @@ class BiRefNetSegmenter:
             
             plt.tight_layout()
             plt.show()
+            
+        # GPU memory cleanup after processing
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            gc.collect()
+            torch.cuda.synchronize()
             
         self.logger.log("Finished processing image array")
         print("Finished processing image array")
