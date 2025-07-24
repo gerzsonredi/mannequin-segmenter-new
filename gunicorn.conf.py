@@ -6,11 +6,12 @@ import os
 bind = "0.0.0.0:5001"
 backlog = 2048
 
-# Worker processes - MAXIMUM CONCURRENCY FOR OPTIMAL GPU SATURATION
-# Strategy: Allow 100 concurrent requests per instance, Cloud Run auto-scales when GPU maxed out
-workers = 1 # Balanced: memory efficiency + concurrency (compromise between 1 and 3)
-worker_class = "gevent"  # Async workers for better concurrency
-worker_connections = 50  # Increased for 100 concurrent requests per instance
+# Worker processes - OPTIMIZED FOR 20 CONCURRENT REQUESTS PER INSTANCE
+# Strategy: 1 worker + multi-threading for optimal GPU sharing + concurrency
+workers = 1  # Single worker to avoid GPU memory conflicts
+worker_class = "gthread"  # Thread-based workers for true parallelism
+threads = int(os.getenv('GUNICORN_THREADS', '20'))  # Match Cloud Run concurrency setting
+worker_connections = 1000  # Adequate for thread-based processing
 timeout = 600  # 10 minutes for model inference (increased for CPU processing)
 keepalive = 5
 
