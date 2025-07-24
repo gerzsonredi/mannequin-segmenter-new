@@ -56,6 +56,12 @@ class BiRefNetSegmenter:
         self.logger.log("Initializing BiRefNet Segmenter")
         print("Initializing BiRefNet Segmenter")
         
+        # GPU Memory Management Optimization
+        if torch.cuda.is_available():
+            torch.cuda.set_per_process_memory_fraction(0.9)  # Leave space for driver
+            torch.backends.cuda.matmul.allow_tf32 = True  # Enable TF32 for better performance
+            self.logger.log("GPU memory management optimizations enabled")
+        
         # Initialize BiRefNet model
         try:
             self.logger.log(f"Loading BiRefNet model: {model_name}")
@@ -69,6 +75,21 @@ class BiRefNetSegmenter:
                 config={'model_type': 'custom_segmentation_model'}
             )
             self.model.to(self.device)
+            
+            # Apply performance optimizations
+            if torch.cuda.is_available():
+                # Use channels_last memory format for better GPU utilization
+                self.model = self.model.to(memory_format=torch.channels_last)
+                
+                # Compile model for optimized execution (PyTorch 2.0+)
+                try:
+                    self.model = torch.compile(self.model, mode="reduce-overhead")
+                    self.logger.log("Model compiled successfully with torch.compile")
+                    print("Model compiled successfully with torch.compile")
+                except Exception as compile_error:
+                    self.logger.log(f"Model compilation failed: {compile_error}")
+                    print(f"Model compilation failed: {compile_error}")
+            
             self.model.eval()
             
             # Apply half precision if using CUDA and fp16 (matching notebook)
@@ -196,9 +217,12 @@ class BiRefNetSegmenter:
         Returns:
             Segmentation mask tensor
         """
-        with torch.no_grad():
+        with torch.no_grad(), torch.inference_mode():
             try:
-                outputs = self.model(img_tensor)
+                # Use autocast for fp16 performance optimization
+                autocast_dtype = torch.float16 if torch.cuda.is_available() and self.precision == 'fp16' else None
+                with torch.autocast(device_type='cuda', dtype=autocast_dtype, enabled=autocast_dtype is not None):
+                    outputs = self.model(img_tensor)
                 
                 # Use the extraction function from the notebook
                 extracted_logits = self._extract_birefnet_output(outputs)

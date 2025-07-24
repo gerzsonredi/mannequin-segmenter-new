@@ -35,18 +35,21 @@ gcloud run deploy "$SERVICE_NAME" \
     --allow-unauthenticated \
     --port 5001 \
     --memory 32Gi \
-    --cpu 8 \
+    --cpu 12 \
     --gpu 1 \
     --gpu-type nvidia-l4 \
     --timeout 300 \
-    --concurrency 50 \
-    --min-instances 5 \
-    --max-instances 20 \
-    --no-cpu-boost \
+    --concurrency 20 \
+    --min-instances 3 \
+    --max-instances 3 \
+    --cpu-boost \
     --execution-environment gen2 \
-    --set-env-vars="FLASK_ENV=production" \
+    --set-env-vars="ENVIRONMENT=production" \
     --set-env-vars="PYTHONPATH=/app" \
     --set-env-vars="CUDA_VISIBLE_DEVICES=0" \
+    --set-env-vars="PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:64,expandable_segments:true" \
+    --set-env-vars="OMP_NUM_THREADS=8" \
+    --set-env-vars="MKL_NUM_THREADS=8" \
     --set-secrets="AWS_ACCESS_KEY_ID=aws-access-key:latest" \
     --set-secrets="AWS_SECRET_ACCESS_KEY=aws-secret-key:latest" \
     --set-secrets="AWS_S3_BUCKET_NAME=aws-s3-bucket:latest" \

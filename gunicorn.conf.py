@@ -6,13 +6,13 @@ import os
 bind = "0.0.0.0:5001"
 backlog = 2048
 
-# Worker processes - OPTIMIZED FOR 20 CONCURRENT REQUESTS PER INSTANCE
-# Strategy: 1 worker + multi-threading for optimal GPU sharing + concurrency
+# Worker processes - OPTIMIZED FOR ASYNC BATCH PROCESSING
+# Strategy: 1 worker with uvicorn for async performance + optimal GPU sharing
 workers = 1  # Single worker to avoid GPU memory conflicts
-worker_class = "gthread"  # Thread-based workers for true parallelism
-threads = int(os.getenv('GUNICORN_THREADS', '20'))  # Match Cloud Run concurrency setting
-worker_connections = 1000  # Adequate for thread-based processing
-timeout = 600  # 10 minutes for model inference (increased for CPU processing)
+worker_class = "uvicorn.workers.UvicornWorker"  # Async worker for FastAPI
+threads = 8  # Thread pool for I/O operations
+worker_connections = 1000  # Adequate for async processing
+timeout = 600  # 10 minutes for model inference
 keepalive = 5
 
 # Restart workers after fewer requests to prevent memory buildup
@@ -39,9 +39,12 @@ graceful_timeout = 60  # Increased timeout for model cleanup
 # Preload application for better memory usage
 preload_app = False  # Changed to False to avoid model loading issues
 
-# Environment variables
+# Environment variables - PERFORMANCE OPTIMIZED
 raw_env = [
     f"PYTHONPATH={os.getenv('PYTHONPATH', '/app')}",
+    "PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:64,expandable_segments:true",  # Memory optimization
+    "OMP_NUM_THREADS=8",  # Optimize CPU threads
+    "MKL_NUM_THREADS=8",  # Intel MKL optimization
 ]
 
 def when_ready(server):
