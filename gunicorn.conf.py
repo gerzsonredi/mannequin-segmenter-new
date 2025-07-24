@@ -8,7 +8,7 @@ backlog = 2048
 
 # Worker processes - MAXIMUM CONCURRENCY FOR OPTIMAL GPU SATURATION
 # Strategy: Allow 100 concurrent requests per instance, Cloud Run auto-scales when GPU maxed out
-workers = 1  # Single worker for maximum GPU memory efficiency
+workers = 2  # Balanced: memory efficiency + concurrency (compromise between 1 and 3)
 worker_class = "gevent"  # Async workers for better concurrency
 worker_connections = 2000  # Increased for 100 concurrent requests per instance
 timeout = 600  # 10 minutes for model inference (increased for CPU processing)
