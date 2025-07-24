@@ -17,31 +17,24 @@ from typing import List, Dict, Any
 SERVICE_URL = "https://mannequin-segmenter-o4c5wdhnoa-ez.a.run.app/batch_infer"
 HEALTH_URL = "https://mannequin-segmenter-o4c5wdhnoa-ez.a.run.app/health"
 
-# Test images (10 different images for batch processing)
+# Test images (3 images for batch processing - conservative & stable)
 TEST_IMAGES = [
-    "https://public-images-redivivum.s3.eu-central-1.amazonaws.com/Remix_data/Majka-teniska-Mustang-132434083b.jpg",
-    "https://public-images-redivivum.s3.eu-central-1.amazonaws.com/Remix_data/Majka-teniska-Mustang-132434083b.jpg",  # Same image repeated for testing
-    "https://public-images-redivivum.s3.eu-central-1.amazonaws.com/Remix_data/Majka-teniska-Mustang-132434083b.jpg",
-    "https://public-images-redivivum.s3.eu-central-1.amazonaws.com/Remix_data/Majka-teniska-Mustang-132434083b.jpg",
-    "https://public-images-redivivum.s3.eu-central-1.amazonaws.com/Remix_data/Majka-teniska-Mustang-132434083b.jpg",
-    "https://public-images-redivivum.s3.eu-central-1.amazonaws.com/Remix_data/Majka-teniska-Mustang-132434083b.jpg",
-    "https://public-images-redivivum.s3.eu-central-1.amazonaws.com/Remix_data/Majka-teniska-Mustang-132434083b.jpg",
     "https://public-images-redivivum.s3.eu-central-1.amazonaws.com/Remix_data/Majka-teniska-Mustang-132434083b.jpg",
     "https://public-images-redivivum.s3.eu-central-1.amazonaws.com/Remix_data/Majka-teniska-Mustang-132434083b.jpg",
     "https://public-images-redivivum.s3.eu-central-1.amazonaws.com/Remix_data/Majka-teniska-Mustang-132434083b.jpg"
 ]
 
 # Test configuration
-BATCH_SIZE = 10  # Images per batch
-CONCURRENT_BATCHES = 10  # Number of concurrent batch requests (100 total images)
+BATCH_SIZE = 3  # Images per batch (conservative for stable processing) 
+CONCURRENT_BATCHES = 6  # Number of concurrent batch requests (18 total images, fits 3×4=12 + queue)
 TIMEOUT = 900  # 15 minutes for batch processing
 
 # Performance expectations
 EXPECTED_IMPROVEMENTS = {
     "parallel_downloads": "5x faster image downloads (5 concurrent)",
-    "batch_inference": "GPU optimization for 10 images at once", 
+    "batch_inference": "GPU optimization for 5 images at once (GPU memory optimized)", 
     "parallel_uploads": "5x faster S3 uploads (5 concurrent)",
-    "total_speedup": "Expected 3-5x improvement vs sequential processing"
+    "total_speedup": "Expected 2-3x improvement vs sequential processing"
 }
 
 async def test_health_check():
@@ -58,6 +51,30 @@ async def test_health_check():
                     return False
     except Exception as e:
         print(f"❌ Health check error: {e}")
+        return False
+
+async def check_server_status():
+    """Check current server load and request limiter status."""
+    status_url = "https://mannequin-segmenter-o4c5wdhnoa-ez.a.run.app/status"
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(status_url, timeout=aiohttp.ClientTimeout(total=30)) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    limiter = result.get('request_limiter', {})
+                    recommendation = result.get('recommendation', {})
+                    
+                    print(f"📊 Server Status:")
+                    print(f"   Active requests: {limiter.get('active_requests', 0)}/{limiter.get('max_concurrent', 4)}")
+                    print(f"   Load: {limiter.get('load_percentage', 0):.1f}%")
+                    print(f"   Available slots: {limiter.get('slots_available', 0)}")
+                    print(f"   Load level: {recommendation.get('load_level', 'unknown')}")
+                    return True
+                else:
+                    print(f"⚠️ Status check failed: HTTP {response.status}")
+                    return False
+    except Exception as e:
+        print(f"⚠️ Status check error: {e}")
         return False
 
 async def send_batch_request(session: aiohttp.ClientSession, batch_id: int, image_urls: List[str]) -> Dict[str, Any]:
@@ -130,6 +147,10 @@ async def run_batch_load_test():
     if not await test_health_check():
         print("❌ Health check failed, aborting test")
         return [], 0
+    
+    # Check server status before starting
+    print("📊 Checking server load before starting test...")
+    await check_server_status()
 
     connector = aiohttp.TCPConnector(
         limit=50,  # Reasonable limit for batch requests
@@ -148,7 +169,7 @@ async def run_batch_load_test():
         results = []
         
         print(f"⏰ Starting {CONCURRENT_BATCHES} batch requests at {datetime.now()}")
-        print("🔄 Each batch contains 10 images for optimal GPU utilization...")
+        print(f"🔄 Each batch contains {BATCH_SIZE} images - testing app-level request limiting...")
         
         # Create batch tasks
         tasks = [

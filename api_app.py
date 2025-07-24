@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, current_app
 from tools.logger import AppLogger
 from tools.env_utils import get_env_variable
+from request_limiter import limit_concurrent_requests, get_limiter_status
 import base64
 from PIL import Image
 import io
@@ -71,8 +72,23 @@ def create_app(testing=False):
             "service": "mannequin-segmenter-api",
             "version": "1.0.0"
         }), 200
+    
+    @app.route('/status', methods=['GET'])
+    def status():
+        """Get current server load and request limiter status."""
+        limiter_status = get_limiter_status()
+        return jsonify({
+            'service': 'mannequin-segmenter-api',
+            'timestamp': datetime.utcnow().isoformat(),
+            'request_limiter': limiter_status,
+            'recommendation': {
+                'load_level': 'low' if limiter_status['load_percentage'] < 50 else 'high' if limiter_status['load_percentage'] < 90 else 'critical',
+                'can_accept_requests': limiter_status['slots_available'] > 0
+            }
+        })
 
     @app.route('/infer', methods=['POST'])
+    @limit_concurrent_requests
     def infer():
         inferencer = current_app.config['INFERENCER'] # Use the inferencer from the app config
         try:
@@ -147,6 +163,7 @@ def create_app(testing=False):
             return jsonify({"error": str(e)}), 500
 
     @app.route('/batch_infer', methods=['POST'])
+    @limit_concurrent_requests
     def batch_infer():
         """Batch inference endpoint for processing multiple images simultaneously."""
         inferencer = current_app.config['INFERENCER']
