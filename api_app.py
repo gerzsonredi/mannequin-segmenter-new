@@ -144,6 +144,111 @@ def create_app(testing=False):
             api_logger.log(error_msg)
             print(error_msg)
             return jsonify({"error": str(e)}), 500
+
+    @app.route('/batch_infer', methods=['POST'])
+    def batch_infer():
+        """Batch inference endpoint for processing multiple images simultaneously."""
+        inferencer = current_app.config['INFERENCER']
+        try:
+            api_logger.log("Received batch inference request")
+            print("Received batch inference request")
+            data = request.get_json()
+            
+            if not data or 'image_urls' not in data:
+                api_logger.log("Error: image_urls not provided in batch request")
+                print("Error: image_urls not provided in batch request")
+                return jsonify({"error": "image_urls list not provided"}), 400
+
+            image_urls = data['image_urls']
+            if not isinstance(image_urls, list) or len(image_urls) == 0:
+                api_logger.log("Error: image_urls must be a non-empty list")
+                print("Error: image_urls must be a non-empty list")
+                return jsonify({"error": "image_urls must be a non-empty list"}), 400
+                
+            if len(image_urls) > 20:  # Limit batch size
+                api_logger.log(f"Error: batch size {len(image_urls)} exceeds maximum of 20")
+                print(f"Error: batch size {len(image_urls)} exceeds maximum of 20")
+                return jsonify({"error": "Maximum batch size is 20 images"}), 400
+
+            # Check if model loaded successfully
+            if inferencer is None:
+                api_logger.log("ERROR: Model not loaded for batch processing")
+                print("ERROR: Model not loaded for batch processing")
+                return jsonify({
+                    "error": "model failed to load",
+                    "batch_size": len(image_urls)
+                }), 500
+
+        except Exception as e:
+            api_logger.log(f"Exception in /batch_infer input handling: {str(e)}")
+            print(f"Exception in /batch_infer input handling: {str(e)}")
+            return jsonify({"error": str(e)}), 500
+        
+        try:
+            batch_size = len(image_urls)
+            api_logger.log(f"Processing batch of {batch_size} images")
+            print(f"Processing batch of {batch_size} images")
+            
+            # Use the batch processing method
+            processed_images = inferencer.process_batch_urls(image_urls, plot=False, max_batch_size=batch_size)
+            
+            if not processed_images or len(processed_images) == 0:
+                api_logger.log("Error: No images were successfully processed in batch")
+                print("Error: No images were successfully processed in batch")
+                return jsonify({"error": "Failed to process any images in batch"}), 500
+
+            api_logger.log(f"Successfully processed {len(processed_images)} images, uploading to S3...")
+            print(f"Successfully processed {len(processed_images)} images, uploading to S3...")
+            
+            # Upload all processed images to S3
+            s3_urls = []
+            today = datetime.utcnow()
+            date_prefix = today.strftime("%Y/%m/%d")
+            
+            for i, processed_img in enumerate(processed_images):
+                try:
+                    # Convert to PIL and upload
+                    vis_pil = Image.fromarray(processed_img.astype(np.uint8))
+                    buff = io.BytesIO()
+                    vis_pil.save(buff, format="JPEG")
+                    buff.seek(0)
+
+                    filename = f"batch_{uuid.uuid4()}_{i}.jpg"
+                    s3_key = f"{date_prefix}/{filename}"
+
+                    s3_client.upload_fileobj(
+                        buff,
+                        aws_s3_bucket_name,
+                        s3_key,
+                        ExtraArgs={'ContentType': 'image/jpeg'}
+                    )
+
+                    s3_url = f"https://{aws_s3_bucket_name}.s3.{aws_s3_region}.amazonaws.com/{s3_key}"
+                    s3_urls.append(s3_url)
+                    
+                except Exception as upload_error:
+                    api_logger.log(f"Error uploading image {i}: {upload_error}")
+                    print(f"Error uploading image {i}: {upload_error}")
+                    s3_urls.append(None)  # Mark failed upload
+            
+            successful_uploads = [url for url in s3_urls if url is not None]
+            
+            api_logger.log(f"Batch processing completed: {len(successful_uploads)}/{batch_size} successful")
+            print(f"Batch processing completed: {len(successful_uploads)}/{batch_size} successful")
+            
+            return jsonify({
+                "batch_size": batch_size,
+                "successful_count": len(successful_uploads),
+                "failed_count": batch_size - len(successful_uploads),
+                "visualization_urls": s3_urls,
+                "input_urls": image_urls
+            })
+
+        except Exception as e:
+            error_msg = f"Error processing batch of {len(image_urls)} images: {str(e)}"
+            api_logger.log(error_msg)
+            print(error_msg)
+            return jsonify({"error": str(e), "batch_size": len(image_urls)}), 500
             
     # Attach objects to app context for easier testing and access
     app.config['S3_CLIENT'] = s3_client

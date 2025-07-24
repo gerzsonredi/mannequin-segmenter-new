@@ -4,6 +4,7 @@ import cv2
 import torch
 import numpy as np
 import requests
+import io
 from pathlib import Path
 from PIL import Image
 import matplotlib.pyplot as plt
@@ -578,3 +579,182 @@ class BiRefNetSegmenter:
         self.logger.log("Finished processing image array")
         print("Finished processing image array")
         return cleaned_img
+
+    def process_batch_urls(self, image_urls, plot=False, max_batch_size=10):
+        """
+        Process a batch of image URLs efficiently using GPU batching.
+        
+        Args:
+            image_urls: List of image URLs to process
+            plot: Whether to show plots for visualization
+            max_batch_size: Maximum number of images to process in one batch
+            
+        Returns:
+            List of processed images (numpy arrays)
+        """
+        self.logger.log(f"Starting batch processing of {len(image_urls)} images")
+        print(f"Starting batch processing of {len(image_urls)} images")
+        
+        if len(image_urls) > max_batch_size:
+            self.logger.log(f"Warning: Batch size {len(image_urls)} exceeds maximum {max_batch_size}, truncating")
+            print(f"Warning: Batch size {len(image_urls)} exceeds maximum {max_batch_size}, truncating")
+            image_urls = image_urls[:max_batch_size]
+        
+        processed_images = []
+        failed_count = 0
+        
+        try:
+            # Download all images first
+            self.logger.log("Step 1: Downloading all images...")
+            print("Step 1: Downloading all images...")
+            
+            downloaded_images = []
+            valid_indices = []
+            
+            for i, url in enumerate(image_urls):
+                try:
+                    self.logger.log(f"Downloading image {i+1}/{len(image_urls)}: {url}")
+                    print(f"Downloading image {i+1}/{len(image_urls)}: {url}")
+                    
+                    response = requests.get(url, timeout=30)
+                    response.raise_for_status()
+                    
+                    # Convert to PIL Image
+                    image = Image.open(io.BytesIO(response.content)).convert("RGB")
+                    downloaded_images.append(image)
+                    valid_indices.append(i)
+                    
+                except Exception as e:
+                    self.logger.log(f"Failed to download image {i+1}: {str(e)}")
+                    print(f"Failed to download image {i+1}: {str(e)}")
+                    failed_count += 1
+                    continue
+            
+            if not downloaded_images:
+                self.logger.log("No images successfully downloaded")
+                print("No images successfully downloaded")
+                return []
+            
+            self.logger.log(f"Successfully downloaded {len(downloaded_images)} images, processing batch...")
+            print(f"Successfully downloaded {len(downloaded_images)} images, processing batch...")
+            
+            # Process images in batch
+            batch_tensors = []
+            original_sizes = []
+            
+            # Preprocess all images
+            for i, image in enumerate(downloaded_images):
+                original_sizes.append(image.size)
+                
+                # Manual preprocessing to match notebook approach
+                image_resized = image.resize((1024, 1024), Image.LANCZOS)
+                image_tensor = F.to_tensor(image_resized).unsqueeze(0)
+                
+                # Normalize
+                mean = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
+                std = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
+                image_tensor = (image_tensor - mean) / std
+                
+                batch_tensors.append(image_tensor.squeeze(0))
+            
+            # Stack into batch tensor
+            batch_input = torch.stack(batch_tensors).to(self.device).to(self.dtype)
+            
+            self.logger.log(f"Step 2: Running batch inference on {len(batch_tensors)} images...")
+            print(f"Step 2: Running batch inference on {len(batch_tensors)} images...")
+            
+            # Run batch inference
+            with torch.no_grad():
+                if self.precision == "fp16":
+                    with torch.autocast(device_type="cuda", dtype=torch.float16):
+                        batch_preds = self.model(batch_input)[-1]
+                else:
+                    batch_preds = self.model(batch_input)[-1]
+                
+                # Apply sigmoid and move to CPU
+                batch_preds = torch.sigmoid(batch_preds).cpu()
+            
+            self.logger.log("Step 3: Post-processing batch results...")
+            print("Step 3: Post-processing batch results...")
+            
+            # Post-process each image
+            for i, (pred, original_size, image) in enumerate(zip(batch_preds, original_sizes, downloaded_images)):
+                try:
+                    # Resize prediction back to original size
+                    pred_resized = F.resize(pred, original_size[::-1], antialias=True)  # PIL size is (width, height), but tensor expects (height, width)
+                    
+                    # Convert to binary mask
+                    pred_mask = (pred_resized.squeeze() > self.mask_threshold).float()
+                    
+                    # Convert to numpy
+                    mask_np = pred_mask.numpy()
+                    image_np = np.array(image)
+                    
+                    # Apply cleaning (remove thin artifacts)
+                    cleaned_mask = self._clean_mask(mask_np)
+                    
+                    # Create clothing-preserved result (white background, clothing visible)
+                    result_img = self._create_clothing_preserved_result(image_np, cleaned_mask)
+                    
+                    processed_images.append(result_img)
+                    
+                    self.logger.log(f"Successfully processed image {i+1}/{len(batch_preds)}")
+                    print(f"Successfully processed image {i+1}/{len(batch_preds)}")
+                    
+                except Exception as e:
+                    self.logger.log(f"Failed to post-process image {i+1}: {str(e)}")
+                    print(f"Failed to post-process image {i+1}: {str(e)}")
+                    failed_count += 1
+                    continue
+            
+            success_count = len(processed_images)
+            total_requested = len(image_urls)
+            
+            self.logger.log(f"Batch processing completed: {success_count}/{total_requested} successful, {failed_count} failed")
+            print(f"Batch processing completed: {success_count}/{total_requested} successful, {failed_count} failed")
+            
+            return processed_images
+            
+        except Exception as e:
+            error_msg = f"Batch processing failed: {str(e)}"
+            self.logger.log(error_msg)
+            print(error_msg)
+            return processed_images  # Return whatever we managed to process
+    
+    def _clean_mask(self, mask):
+        """Clean mask by removing thin artifacts."""
+        import cv2
+        
+        # Convert to uint8
+        mask_uint8 = (mask * 255).astype(np.uint8)
+        
+        # Remove thin structures
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+        
+        # Opening to remove thin connections
+        mask_opened = cv2.morphologyEx(mask_uint8, cv2.MORPH_OPEN, kernel)
+        
+        # Find contours and filter by area
+        contours, _ = cv2.findContours(mask_opened, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        # Create clean mask
+        clean_mask = np.zeros_like(mask_uint8)
+        for contour in contours:
+            area = cv2.contourArea(contour)
+            if area > self.thickness_threshold:  # Keep only substantial areas
+                cv2.fillPoly(clean_mask, [contour], 255)
+        
+        return (clean_mask / 255.0).astype(np.float32)
+    
+    def _create_clothing_preserved_result(self, image, mask):
+        """Create result where mannequin body is white, clothing remains visible."""
+        # Invert mask so clothing areas are preserved
+        clothing_mask = 1.0 - mask
+        
+        # Create white background
+        white_background = np.ones_like(image) * 255
+        
+        # Apply mask: white where mannequin body, original image where clothing
+        result = image * clothing_mask[..., np.newaxis] + white_background * mask[..., np.newaxis]
+        
+        return result.astype(np.uint8)
