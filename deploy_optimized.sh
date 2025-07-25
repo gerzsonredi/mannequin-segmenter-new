@@ -35,7 +35,7 @@ gcloud run deploy "$SERVICE_NAME" \
     --allow-unauthenticated \
     --port 5001 \
     --memory 32Gi \
-    --cpu 12 \
+    --cpu 8.0 \
     --gpu 1 \
     --gpu-type nvidia-l4 \
     --timeout 300 \
