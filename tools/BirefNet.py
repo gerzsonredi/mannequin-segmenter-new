@@ -122,14 +122,17 @@ class BiRefNetSegmenter:
                 # Use channels_last memory format for better GPU utilization
                 self.model = self.model.to(memory_format=torch.channels_last)
                 
-                # Compile model for optimized execution (PyTorch 2.0+)
-                try:
-                    self.model = torch.compile(self.model, mode="reduce-overhead")
-                    self.logger.log("Model compiled successfully with torch.compile")
-                    print("Model compiled successfully with torch.compile")
-                except Exception as compile_error:
-                    self.logger.log(f"Model compilation failed: {compile_error}")
-                    print(f"Model compilation failed: {compile_error}")
+                # DISABLED: torch.compile conflicts with BiRefNet's tensor mutations
+                # The model mutates input tensors which causes "skipping cudagraphs due to mutated inputs"
+                # try:
+                #     self.model = torch.compile(self.model, mode="reduce-overhead")
+                #     self.logger.log("Model compiled successfully with torch.compile")
+                #     print("Model compiled successfully with torch.compile")
+                # except Exception as compile_error:
+                #     self.logger.log(f"Model compilation failed: {compile_error}")
+                #     print(f"Model compilation failed: {compile_error}")
+                self.logger.log("torch.compile disabled - conflicts with BiRefNet tensor mutations")
+                print("torch.compile disabled - conflicts with BiRefNet tensor mutations")
             
             self.model.eval()
             # Ensure no gradients are computed for inference
