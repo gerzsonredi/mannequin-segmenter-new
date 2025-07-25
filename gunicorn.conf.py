@@ -6,11 +6,11 @@ import os
 bind = "0.0.0.0:5001"
 backlog = 2048
 
-# Worker processes - OPTIMIZED FOR BATCH PROCESSING
-# Strategy: 1 worker for optimal GPU sharing with Flask
-workers = 1  # Single worker to avoid GPU memory conflicts
+# Worker processes - OPTIMIZED FOR GPU MEMORY MANAGEMENT
+# Strategy: 1 worker + 3 threads = max 3 concurrent requests per instance
+workers = 1  # CRITICAL: Single worker to avoid multiple model loading on GPU
 worker_class = "sync"  # Sync worker for Flask
-threads = 8  # Thread pool for I/O operations
+threads = 3  # Aligned with Cloud Run concurrency=3
 worker_connections = 1000  # Adequate for async processing
 timeout = 600  # 10 minutes for model inference
 keepalive = 5

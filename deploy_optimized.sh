@@ -46,7 +46,7 @@ gcloud run deploy "$SERVICE_NAME" \
     --port 5001 \
     --memory 32Gi \
     --cpu 8.0 \
-    --gpu 3 \
+    --gpu 1 \
     --gpu-type nvidia-l4 \
     --timeout 300 \
     --concurrency 20 \
@@ -76,11 +76,11 @@ fi
 
 echo ""
 echo "🎯 OPTIMIZATION SUMMARY:"
-echo "   • Concurrency: 20 per instance (60 total throughput)"  
-echo "   • Min instances: 3 (high availability, no single point of failure)"
-echo "   • Max instances: 3 (dedicated GPU per instance, no memory conflicts)"
-echo "   • Memory: 32Gi x 3 instances = 96Gi total with 3x NVIDIA L4 GPU"
-echo "   • CPU: 8.0 x 3 instances = 24 CPU cores total with boost enabled"
+echo "   • Concurrency: 20 (optimized for GPU)"
+echo "   • Min instances: 3 (always warm)"
+echo "   • Max instances: 3 (no scaling, consistent performance)"
+echo "   • Memory: 32Gi with NVIDIA L4 GPU"
+echo "   • CPU: 8.0 with CPU boost enabled"
 echo "   • Preload app: enabled"
 echo "   • Reduced logging overhead"
 echo "   • Optimized timeouts"
