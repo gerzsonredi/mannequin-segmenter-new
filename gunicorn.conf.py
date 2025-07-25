@@ -6,10 +6,10 @@ import os
 bind = "0.0.0.0:5001"
 backlog = 2048
 
-# Worker processes - OPTIMIZED FOR ASYNC BATCH PROCESSING
-# Strategy: 1 worker with uvicorn for async performance + optimal GPU sharing
+# Worker processes - OPTIMIZED FOR BATCH PROCESSING
+# Strategy: 1 worker for optimal GPU sharing with Flask
 workers = 1  # Single worker to avoid GPU memory conflicts
-worker_class = "uvicorn.workers.UvicornWorker"  # Async worker for FastAPI
+worker_class = "sync"  # Sync worker for Flask
 threads = 8  # Thread pool for I/O operations
 worker_connections = 1000  # Adequate for async processing
 timeout = 600  # 10 minutes for model inference

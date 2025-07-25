@@ -11,9 +11,10 @@ gunicorn==21.2.0
 # ML/AI dependencies for BiRefNet
 transformers
 timm
+kornia
 numpy
 scipy==1.11.2
-einops==0.4.1
+einops==0.8.1
 
 # Image processing
 opencv-python

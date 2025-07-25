@@ -13,9 +13,20 @@ import matplotlib.pyplot as plt
 from transformers import AutoModelForImageSegmentation, AutoProcessor
 from torchvision.transforms import functional as F
 from dotenv import load_dotenv
+from typing import List
+import time
 
 # Import utilities from tools package
-from .logger import AppLogger
+try:
+    # Try relative import first
+    from .logger import AppLogger
+except (ImportError, ValueError):
+    try:
+        # Try absolute import from tools
+        from tools.logger import AppLogger
+    except ImportError:
+        # Try direct import (when tools in PYTHONPATH)
+        from logger import AppLogger
 
 os.environ["TRANSFORMERS_TRUST_REMOTE_CODE"] = "true"
 
@@ -56,7 +67,6 @@ class BiRefNetSegmenter:
         print("Initializing BiRefNet Segmenter")
         
         # Set performance environment variables programmatically (fallback if not set)
-        import os
         if not os.getenv('PYTORCH_CUDA_ALLOC_CONF'):
             os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:64,expandable_segments:true'
         if not os.getenv('OMP_NUM_THREADS'):
@@ -202,27 +212,79 @@ class BiRefNetSegmenter:
             print(f"Error in _preprocess_image: {e}")
             raise
 
+    def _preprocess_batch_images(self, images: List[np.ndarray]) -> torch.Tensor:
+        """
+        Preprocess multiple images for batch BiRefNet inference.
+        
+        Args:
+            images: List of input images in BGR format
+            
+        Returns:
+            Batch tensor with shape [batch_size, 3, 512, 512]
+        """
+        try:
+            batch_tensors = []
+            
+            for i, img in enumerate(images):
+                # Convert BGR to RGB
+                img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                
+                # Convert to PIL Image and resize to 512x512
+                pil_img = Image.fromarray(img_rgb).convert("RGB").resize((512, 512))
+                
+                # Convert to tensor (no unsqueeze - we'll stack later)
+                img_tensor = F.to_tensor(pil_img).to(self.device)
+                
+                # Apply half precision if needed
+                if self.precision == 'fp16' and self.device.type == 'cuda':
+                    img_tensor = img_tensor.half()
+                
+                batch_tensors.append(img_tensor)
+            
+            # Stack all tensors into a batch
+            batch_tensor = torch.stack(batch_tensors, dim=0)  # [batch_size, 3, 512, 512]
+            
+            self.logger.log(f"Batch preprocessing output shape: {batch_tensor.shape}, dtype: {batch_tensor.dtype}")
+            print(f"Batch preprocessing output shape: {batch_tensor.shape}, dtype: {batch_tensor.dtype}")
+            
+            return batch_tensor
+            
+        except Exception as e:
+            self.logger.log(f"Error in _preprocess_batch_images: {e}")
+            print(f"Error in _preprocess_batch_images: {e}")
+            raise
+
     def _extract_birefnet_output(self, logits):
         """
         Extract the correct output tensor from BiRefNet's complex output structure.
+        Handles both single image and batch processing cases.
         Based on the notebook's extract_birefnet_output function.
         """
         # Strategy 1: Direct tensor
         if hasattr(logits, 'shape'):
-            return logits
+            # Check if this is batch or single
+            if len(logits.shape) >= 3:  # Batch case: [batch, H, W] or [batch, C, H, W]
+                return logits
+            elif len(logits.shape) == 2:  # Single case: [H, W]
+                return logits
 
-        # Strategy 2: Look for 512x512 tensor (matching notebook training size)
-        def find_512x512_tensor(obj):
-            if hasattr(obj, 'shape') and len(obj.shape) >= 2 and obj.shape[-2:] == (512, 512):
-                return obj
+        # Strategy 2: Look for correct tensor shape (batch or single 512x512)
+        def find_target_tensor(obj):
+            if hasattr(obj, 'shape') and len(obj.shape) >= 2:
+                # For batch: [batch_size, 512, 512] or [batch_size, 1, 512, 512]
+                if len(obj.shape) >= 3 and obj.shape[-2:] == (512, 512):
+                    return obj
+                # For single: [512, 512] or [1, 512, 512]
+                elif obj.shape[-2:] == (512, 512):
+                    return obj
             elif isinstance(obj, (list, tuple)):
                 for item in obj:
-                    result = find_512x512_tensor(item)
+                    result = find_target_tensor(item)
                     if result is not None:
                         return result
             return None
 
-        result = find_512x512_tensor(logits)
+        result = find_target_tensor(logits)
         if result is not None:
             return result
 
@@ -303,6 +365,91 @@ class BiRefNetSegmenter:
                     torch.cuda.synchronize()
                     
                 raise
+
+    def _run_batch_inference(self, batch_tensor: torch.Tensor) -> torch.Tensor:
+        """
+        Run BiRefNet inference on batch of preprocessed images.
+        
+        Args:
+            batch_tensor: Batch tensor with shape [batch_size, 3, 512, 512]
+            
+        Returns:
+            Batch segmentation masks tensor [batch_size, 512, 512]
+        """
+        with torch.no_grad(), torch.inference_mode():
+            try:
+                # Use autocast for fp16 performance optimization
+                autocast_dtype = torch.float16 if torch.cuda.is_available() and self.precision == 'fp16' else None
+                
+                with torch.autocast(device_type='cuda', dtype=autocast_dtype, enabled=autocast_dtype is not None):
+                    # TRUE BATCH INFERENCE - process all images in one forward pass
+                    outputs = self.model(batch_tensor)
+                
+                # Debug: Log model output info
+                self.logger.log(f"🔍 Model output type: {type(outputs)}")
+                print(f"🔍 Model output type: {type(outputs)}")
+                if hasattr(outputs, 'shape'):
+                    self.logger.log(f"🔍 Model output shape: {outputs.shape}")
+                    print(f"🔍 Model output shape: {outputs.shape}")
+                elif isinstance(outputs, (list, tuple)):
+                    self.logger.log(f"🔍 Model output list length: {len(outputs)}")
+                    print(f"🔍 Model output list length: {len(outputs)}")
+                    for i, item in enumerate(outputs[:3]):  # Show first 3 items
+                        if hasattr(item, 'shape'):
+                            self.logger.log(f"🔍 Item {i} shape: {item.shape}")
+                            print(f"🔍 Item {i} shape: {item.shape}")
+                
+                # Use the extraction function from the notebook
+                extracted_logits = self._extract_birefnet_output(outputs)
+                
+                if extracted_logits is None:
+                    self.logger.log("❌ Warning: Could not extract valid output from BiRefNet batch")
+                    print("❌ Warning: Could not extract valid output from BiRefNet batch")
+                    # Return empty masks as fallback
+                    batch_size = batch_tensor.shape[0]
+                    return torch.zeros((batch_size, 512, 512), device=self.device, dtype=batch_tensor.dtype)
+                
+                self.logger.log(f"🔍 Extracted logits shape: {extracted_logits.shape}")
+                print(f"🔍 Extracted logits shape: {extracted_logits.shape}")
+                
+                # Apply sigmoid to get probabilities
+                batch_masks = torch.sigmoid(extracted_logits)
+                
+                # Ensure correct shape: [batch_size, 512, 512]
+                original_shape = batch_masks.shape
+                if batch_masks.ndim == 4 and batch_masks.shape[1] == 1:
+                    # Remove channel dimension: [batch, 1, H, W] -> [batch, H, W]
+                    batch_masks = batch_masks.squeeze(1)
+                elif batch_masks.ndim == 3:
+                    # Already correct: [batch, H, W]
+                    pass
+                elif batch_masks.ndim == 2:
+                    # Single image case: [H, W] -> [1, H, W]
+                    batch_masks = batch_masks.unsqueeze(0)
+                else:
+                    self.logger.log(f"❌ Unexpected batch mask shape: {batch_masks.shape}")
+                    print(f"❌ Unexpected batch mask shape: {batch_masks.shape}")
+                    # Try to reshape to expected format
+                    if batch_masks.numel() == batch_tensor.shape[0] * 512 * 512:
+                        batch_masks = batch_masks.view(batch_tensor.shape[0], 512, 512)
+                    else:
+                        raise ValueError(f"Cannot reshape {batch_masks.shape} to batch format")
+                
+                self.logger.log(f"✅ Batch inference output: {original_shape} -> {batch_masks.shape}, dtype: {batch_masks.dtype}")
+                print(f"✅ Batch inference output: {original_shape} -> {batch_masks.shape}, dtype: {batch_masks.dtype}")
+                
+                return batch_masks
+                
+            except Exception as e:
+                self.logger.log(f"Error during BiRefNet batch inference: {e}")
+                print(f"Error during BiRefNet batch inference: {e}")
+                
+                # GPU memory cleanup even on error
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                    torch.cuda.synchronize()
+                
+                raise e
 
     def _extract_mannequin_masks(self, mask_tensor: torch.Tensor, img_shape: tuple) -> np.ndarray:
         """
@@ -737,35 +884,61 @@ class BiRefNetSegmenter:
             batch_tensors = []
             original_sizes = []
             
-            # Process images using proven single image processing method
-            self.logger.log(f"Step 2: Processing {len(downloaded_images)} images using single processing...")
-            print(f"Step 2: Processing {len(downloaded_images)} images using single processing...")
+            # Use new TRUE BATCH PROCESSING for optimal GPU utilization
+            self.logger.log(f"Step 2: Processing {len(downloaded_images)} images using TRUE BATCH PROCESSING...")
+            print(f"Step 2: Processing {len(downloaded_images)} images using TRUE BATCH PROCESSING...")
             
-            for i, image in enumerate(downloaded_images):
-                try:
-                    self.logger.log(f"Processing image {i+1}/{len(downloaded_images)}")
-                    print(f"Processing image {i+1}/{len(downloaded_images)}")
-                    
-                    # Convert PIL image to numpy array (BGR format for BiRefNet)
+            try:
+                # Convert PIL images to numpy arrays (BGR format for BiRefNet)
+                image_arrays = []
+                for image in downloaded_images:
                     image_np = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
-                    
-                    # Use the proven single image processing method
-                    result_img = self.process_image_array(image_np, plot=False)
-                    
+                    image_arrays.append(image_np)
+                
+                # Use the new batch processing method for true GPU parallelization
+                batch_results = self.process_image_arrays_batch(image_arrays, plot=False)
+                
+                # Count successful results
+                for i, result_img in enumerate(batch_results):
                     if result_img is not None:
                         processed_images.append(result_img)
-                        self.logger.log(f"Successfully processed image {i+1}/{len(downloaded_images)}")
-                        print(f"Successfully processed image {i+1}/{len(downloaded_images)}")
+                        self.logger.log(f"Successfully processed image {i+1}/{len(downloaded_images)} in batch")
+                        print(f"Successfully processed image {i+1}/{len(downloaded_images)} in batch")
                     else:
-                        self.logger.log(f"Failed to process image {i+1}: process_image_array returned None")
-                        print(f"Failed to process image {i+1}: process_image_array returned None")
+                        self.logger.log(f"Failed to process image {i+1} in batch: result was None")
+                        print(f"Failed to process image {i+1} in batch: result was None")
                         failed_count += 1
-                    
-                except Exception as e:
-                    self.logger.log(f"Failed to process image {i+1}: {str(e)}")
-                    print(f"Failed to process image {i+1}: {str(e)}")
-                    failed_count += 1
-                    continue
+                        
+            except Exception as batch_error:
+                self.logger.log(f"Batch processing failed, falling back to sequential: {batch_error}")
+                print(f"Batch processing failed, falling back to sequential: {batch_error}")
+                
+                # Fallback to sequential processing
+                for i, image in enumerate(downloaded_images):
+                    try:
+                        self.logger.log(f"Processing image {i+1}/{len(downloaded_images)} (sequential fallback)")
+                        print(f"Processing image {i+1}/{len(downloaded_images)} (sequential fallback)")
+                        
+                        # Convert PIL image to numpy array (BGR format for BiRefNet)
+                        image_np = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+                        
+                        # Use the proven single image processing method
+                        result_img = self.process_image_array(image_np, plot=False)
+                        
+                        if result_img is not None:
+                            processed_images.append(result_img)
+                            self.logger.log(f"Successfully processed image {i+1}/{len(downloaded_images)} (fallback)")
+                            print(f"Successfully processed image {i+1}/{len(downloaded_images)} (fallback)")
+                        else:
+                            self.logger.log(f"Failed to process image {i+1}: process_image_array returned None")
+                            print(f"Failed to process image {i+1}: process_image_array returned None")
+                            failed_count += 1
+                        
+                    except Exception as e:
+                        self.logger.log(f"Failed to process image {i+1} (fallback): {str(e)}")
+                        print(f"Failed to process image {i+1} (fallback): {str(e)}")
+                        failed_count += 1
+                        continue
             
             success_count = len(processed_images)
             total_requested = len(image_urls)
@@ -829,3 +1002,99 @@ class BiRefNetSegmenter:
         result = image * clothing_mask[..., np.newaxis] + white_background * mask[..., np.newaxis]
         
         return result.astype(np.uint8)
+
+    def process_image_arrays_batch(self, image_arrays: List[np.ndarray], plot: bool = False) -> List[np.ndarray]:
+        """
+        Process multiple image arrays using true batch inference for optimal GPU utilization.
+        
+        Args:
+            image_arrays: List of images in BGR format
+            plot: Whether to show plots for visualization
+            
+        Returns:
+            List of processed images (numpy arrays)
+        """
+        try:
+            if not image_arrays:
+                return []
+            
+            batch_size = len(image_arrays)
+            self.logger.log(f"🚀 TRUE BATCH PROCESSING: {batch_size} images in single GPU forward pass")
+            print(f"🚀 TRUE BATCH PROCESSING: {batch_size} images in single GPU forward pass")
+            
+            # Step 1: Batch preprocessing - all images to one tensor
+            batch_start = time.time()
+            batch_tensor = self._preprocess_batch_images(image_arrays)
+            preprocess_time = time.time() - batch_start
+            
+            # Step 2: Batch inference - single model.forward() call
+            inference_start = time.time()
+            batch_masks = self._run_batch_inference(batch_tensor)
+            inference_time = time.time() - inference_start
+            
+            # Step 3: Individual postprocessing for each image
+            postprocess_start = time.time()
+            processed_images = []
+            
+            for i, (img, mask_tensor) in enumerate(zip(image_arrays, batch_masks)):
+                try:
+                    # Extract mannequin masks
+                    mannequin_mask = self._extract_mannequin_masks(mask_tensor, img.shape[:2])
+                    
+                    # Apply masks to remove unwanted areas
+                    processed_img = self.apply_masks_to_remove_unwanted_areas(img, mannequin_mask)
+                    
+                    # Remove thin artifacts
+                    cleaned_img = self.remove_thin_stripes(
+                        processed_img,
+                        thickness_threshold=self.thickness_threshold,
+                        method="morphology"
+                    )
+                    
+                    processed_images.append(cleaned_img)
+                    
+                except Exception as e:
+                    self.logger.log(f"Error processing image {i+1} in batch: {e}")
+                    print(f"Error processing image {i+1} in batch: {e}")
+                    processed_images.append(None)
+            
+            postprocess_time = time.time() - postprocess_start
+            total_time = time.time() - batch_start
+            
+            # Performance logging
+            self.logger.log(f"⚡ BATCH PERFORMANCE BREAKDOWN:")
+            self.logger.log(f"   Preprocessing: {preprocess_time:.3f}s ({preprocess_time/total_time*100:.1f}%)")
+            self.logger.log(f"   Inference: {inference_time:.3f}s ({inference_time/total_time*100:.1f}%)")
+            self.logger.log(f"   Postprocessing: {postprocess_time:.3f}s ({postprocess_time/total_time*100:.1f}%)")
+            self.logger.log(f"   Total: {total_time:.3f}s")
+            self.logger.log(f"   Throughput: {batch_size/total_time:.2f} images/second")
+            self.logger.log(f"   Time per image: {total_time/batch_size:.3f}s")
+            
+            print(f"⚡ BATCH PERFORMANCE BREAKDOWN:")
+            print(f"   Preprocessing: {preprocess_time:.3f}s ({preprocess_time/total_time*100:.1f}%)")
+            print(f"   Inference: {inference_time:.3f}s ({inference_time/total_time*100:.1f}%)")
+            print(f"   Postprocessing: {postprocess_time:.3f}s ({postprocess_time/total_time*100:.1f}%)")
+            print(f"   Total: {total_time:.3f}s")
+            print(f"   Throughput: {batch_size/total_time:.2f} images/second")
+            print(f"   Time per image: {total_time/batch_size:.3f}s")
+            
+            # GPU memory cleanup
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.synchronize()
+            
+            return processed_images
+            
+        except Exception as e:
+            self.logger.log(f"Error in batch processing: {e}")
+            print(f"Error in batch processing: {e}")
+            
+            # GPU memory cleanup even on error
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.synchronize()
+            
+            # Fallback to sequential processing
+            self.logger.log("Falling back to sequential processing...")
+            print("Falling back to sequential processing...")
+            return [self.process_image_array(img, plot=False) for img in image_arrays]

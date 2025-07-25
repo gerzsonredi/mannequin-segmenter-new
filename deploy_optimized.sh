@@ -6,12 +6,22 @@
 set -e
 
 # Configuration
-PROJECT_ID="your-project-id"  # Replace with your actual project ID
+PROJECT_ID=${PROJECT_ID:-"$(gcloud config get-value project 2>/dev/null)"}
 SERVICE_NAME="mannequin-segmenter"
 REGION="europe-west4"
 REPOSITORY_NAME="mannequin-segmenter-repo"
 
 echo "🚀 Deploying OPTIMIZED Mannequin Segmenter for 6-second target..."
+
+# Check if PROJECT_ID is set
+if [ -z "$PROJECT_ID" ]; then
+    echo "❌ Error: PROJECT_ID not set. Please set it using:"
+    echo "   export PROJECT_ID=your-actual-project-id"
+    echo "   or use: gcloud config set project your-project-id"
+    exit 1
+fi
+
+echo "📋 Project ID: $PROJECT_ID"
 
 # Configure Docker for Artifact Registry
 echo "📦 Configuring Docker..."

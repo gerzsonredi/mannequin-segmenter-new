@@ -32,8 +32,8 @@ COPY requirements.txt /app/requirements.txt
 # Install PyTorch with CUDA support first (CUDA 12.1 for better L4 compatibility)
 RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cu121
 
-# Install other Python dependencies (FastAPI optimized)
-RUN pip install --no-cache-dir fastapi[all] uvicorn[standard] boto3 python-dotenv aiohttp
+# Install other Python dependencies (Flask optimized)
+RUN pip install --no-cache-dir flask boto3 python-dotenv aiohttp
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the entire application
@@ -42,9 +42,10 @@ COPY . /app/
 # Create necessary directories
 RUN mkdir -p /app/artifacts /app/tools
 
-# Set environment variables for Python and GPU (FastAPI optimized)
+# Set environment variables for Python and GPU (Flask optimized)
 ENV PYTHONPATH=/app
-ENV ENVIRONMENT=production
+ENV FLASK_APP=api_app:app
+ENV FLASK_ENV=production
 ENV PORT=5001
 ENV PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:64,expandable_segments:true
 ENV OMP_NUM_THREADS=8
@@ -53,5 +54,5 @@ ENV MKL_NUM_THREADS=8
 # Expose the port
 EXPOSE 5001
 
-# Command to run the optimized FastAPI application
-CMD ["gunicorn", "--config", "gunicorn.conf.py", "fastapi_app:app"] 
+# Command to run the optimized Flask application
+CMD ["gunicorn", "--config", "gunicorn.conf.py", "api_app:app"] 

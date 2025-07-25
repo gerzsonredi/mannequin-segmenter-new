@@ -122,35 +122,43 @@ async def batch_worker():
             batch_start = time.time()
             processed_images = []
             
-            # TRUE BATCH PROCESSING - process images in parallel for better GPU utilization
+            # TRUE BATCH PROCESSING - process all images in single GPU forward pass
             if len(images) == 1:
-                # Single image optimization
+                # Single image optimization - use existing method
                 try:
                     img_bgr = images[0][:, :, ::-1]
                     result = inferencer.process_image_array(img_bgr, plot=False)
                     processed_images.append(result)
+                    api_logger.log(f"✅ Single image processed successfully")
                 except Exception as e:
                     api_logger.log(f"Error processing single image: {e}")
                     processed_images.append(None)
             else:
-                # Parallel batch processing for multiple images
-                import concurrent.futures
-                import threading
-                
-                def process_single_image(img_array):
-                    try:
-                        # Convert RGB to BGR for BiRefNet
-                        img_bgr = img_array[:, :, ::-1]
-                        return inferencer.process_image_array(img_bgr, plot=False)
-                    except Exception as e:
-                        api_logger.log(f"Error processing image in parallel batch: {e}")
-                        return None
-                
-                # Process images sequentially but within async batch (model not thread-safe)
-                # This still allows async batching benefits (request grouping, shared overhead)
-                for img_array in images:
-                    result = process_single_image(img_array)
-                    processed_images.append(result)
+                # REAL BATCH PROCESSING - multiple images in one GPU forward pass
+                try:
+                    # Convert RGB to BGR for all images
+                    batch_images_bgr = [img[:, :, ::-1] for img in images]
+                    
+                    api_logger.log(f"🚀 Using TRUE BATCH PROCESSING for {len(batch_images_bgr)} images")
+                    
+                    # Use new batch processing method
+                    batch_results = inferencer.process_image_arrays_batch(batch_images_bgr, plot=False)
+                    processed_images.extend(batch_results)
+                    
+                    api_logger.log(f"✅ Batch processing completed: {len([r for r in batch_results if r is not None])}/{len(batch_results)} successful")
+                    
+                except Exception as e:
+                    api_logger.log(f"Batch processing failed, falling back to sequential: {e}")
+                    
+                    # Fallback to sequential processing
+                    for img_array in images:
+                        try:
+                            img_bgr = img_array[:, :, ::-1]
+                            result = inferencer.process_image_array(img_bgr, plot=False)
+                            processed_images.append(result)
+                        except Exception as single_e:
+                            api_logger.log(f"Error processing image in fallback: {single_e}")
+                            processed_images.append(None)
             
             batch_duration = time.time() - batch_start
             api_logger.log(f"Batch processing completed in {batch_duration:.3f}s")

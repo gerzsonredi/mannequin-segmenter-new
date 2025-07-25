@@ -17,16 +17,18 @@ from typing import List, Dict, Any
 SERVICE_URL = "https://mannequin-segmenter-o4c5wdhnoa-ez.a.run.app/batch_infer"
 HEALTH_URL = "https://mannequin-segmenter-o4c5wdhnoa-ez.a.run.app/health"
 
-# Test images (3 images for batch processing - conservative & stable)
+# Test images (5 images for batch processing - optimized for GPU utilization)
 TEST_IMAGES = [
+    "https://public-images-redivivum.s3.eu-central-1.amazonaws.com/Remix_data/Majka-teniska-Mustang-132434083b.jpg",
+    "https://public-images-redivivum.s3.eu-central-1.amazonaws.com/Remix_data/Majka-teniska-Mustang-132434083b.jpg",
     "https://public-images-redivivum.s3.eu-central-1.amazonaws.com/Remix_data/Majka-teniska-Mustang-132434083b.jpg",
     "https://public-images-redivivum.s3.eu-central-1.amazonaws.com/Remix_data/Majka-teniska-Mustang-132434083b.jpg",
     "https://public-images-redivivum.s3.eu-central-1.amazonaws.com/Remix_data/Majka-teniska-Mustang-132434083b.jpg"
 ]
 
-# Test configuration
-BATCH_SIZE = 2  # Images per batch (conservative for stable processing) 
-CONCURRENT_BATCHES = 2  # Number of concurrent batch requests (18 total images, fits 3×4=12 + queue)
+# Test configuration - Optimized for your GPU specs (32Gi RAM, 8 CPU, 1x NVIDIA L4)
+BATCH_SIZE = 5  # Images per batch (optimized for GPU utilization) 
+CONCURRENT_BATCHES = 4  # Number of concurrent batch requests (20 total images, testing autoscaling)
 TIMEOUT = 900  # 15 minutes for batch processing
 
 # Performance expectations
@@ -173,7 +175,7 @@ async def run_batch_load_test():
         
         # Create batch tasks
         tasks = [
-            send_batch_request(session, i + 1, TEST_IMAGES.copy())
+            send_batch_request(session, i + 1, TEST_IMAGES[:BATCH_SIZE])
             for i in range(CONCURRENT_BATCHES)
         ]
         

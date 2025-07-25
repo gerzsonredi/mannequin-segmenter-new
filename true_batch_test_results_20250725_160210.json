@@ -1,0 +1,32 @@
+{
+  "timestamp": "2025-07-25T16:02:10.441542",
+  "single_baseline": {
+    "time_ms": 3335.901975631714,
+    "success": true
+  },
+  "batch_results": [
+    {
+      "batch_size": 2,
+      "time_ms": 1431.9591522216797,
+      "success": false,
+      "successful_count": 0
+    },
+    {
+      "batch_size": 3,
+      "time_ms": 1804.4991493225098,
+      "success": false,
+      "successful_count": 0
+    },
+    {
+      "batch_size": 5,
+      "time_ms": 2122.761011123657,
+      "success": false,
+      "successful_count": 0
+    }
+  ],
+  "concurrent_comparison": {
+    "time_ms": 7375.320911407471,
+    "success": true,
+    "successful_count": 5
+  }
+}

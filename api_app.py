@@ -86,6 +86,77 @@ def create_app(testing=False):
                 'can_accept_requests': limiter_status['slots_available'] > 0
             }
         })
+    
+    @app.route('/debug_batch', methods=['POST'])
+    def debug_batch():
+        """Debug endpoint for batch processing"""
+        try:
+            data = request.get_json()
+            image_urls = data.get('image_urls', [])
+            
+            if not image_urls:
+                return jsonify({"error": "No image URLs provided"}), 400
+            
+            batch_size = len(image_urls)
+            api_logger.log(f"🐛 DEBUG: Testing batch processing with {batch_size} images")
+            print(f"🐛 DEBUG: Testing batch processing with {batch_size} images")
+            
+            # Test the batch processing step by step
+            debug_info = {
+                "batch_size": batch_size,
+                "image_urls": image_urls,
+                "steps": []
+            }
+            
+            try:
+                # Step 1: Model check
+                if inferencer is None:
+                    debug_info["steps"].append({"step": "model_check", "status": "FAILED", "error": "Model not loaded"})
+                    return jsonify(debug_info), 500
+                else:
+                    debug_info["steps"].append({"step": "model_check", "status": "OK"})
+                
+                # Step 2: Try batch processing
+                api_logger.log(f"🐛 DEBUG: Calling process_batch_urls...")
+                print(f"🐛 DEBUG: Calling process_batch_urls...")
+                
+                start_time = time.time()
+                processed_images = inferencer.process_batch_urls(image_urls, plot=False, max_batch_size=batch_size)
+                end_time = time.time()
+                
+                processing_time = end_time - start_time
+                
+                if processed_images and len(processed_images) > 0:
+                    debug_info["steps"].append({
+                        "step": "batch_processing", 
+                        "status": "OK", 
+                        "processed_count": len(processed_images),
+                        "processing_time": processing_time
+                    })
+                else:
+                    debug_info["steps"].append({
+                        "step": "batch_processing", 
+                        "status": "FAILED", 
+                        "error": "No images processed",
+                        "processing_time": processing_time
+                    })
+                
+                return jsonify(debug_info)
+                
+            except Exception as process_error:
+                debug_info["steps"].append({
+                    "step": "batch_processing", 
+                    "status": "ERROR", 
+                    "error": str(process_error)
+                })
+                api_logger.log(f"🐛 DEBUG: Batch processing error: {process_error}")
+                print(f"🐛 DEBUG: Batch processing error: {process_error}")
+                return jsonify(debug_info), 500
+                
+        except Exception as e:
+            api_logger.log(f"🐛 DEBUG: Debug endpoint error: {e}")
+            print(f"🐛 DEBUG: Debug endpoint error: {e}")
+            return jsonify({"error": str(e)}), 500
 
     @app.route('/infer', methods=['POST'])
     @limit_concurrent_requests
@@ -207,8 +278,15 @@ def create_app(testing=False):
             api_logger.log(f"Processing batch of {batch_size} images")
             print(f"Processing batch of {batch_size} images")
             
-            # Use the batch processing method
+            # Debug batch processing attempt
+            api_logger.log(f"🚀 Starting TRUE BATCH PROCESSING for {batch_size} images")
+            print(f"🚀 Starting TRUE BATCH PROCESSING for {batch_size} images")
+            
+            # Use the improved batch processing method
             processed_images = inferencer.process_batch_urls(image_urls, plot=False, max_batch_size=batch_size)
+            
+            api_logger.log(f"🔍 Batch processing result: {len(processed_images) if processed_images else 0} processed images")
+            print(f"🔍 Batch processing result: {len(processed_images) if processed_images else 0} processed images")
             
             if not processed_images or len(processed_images) == 0:
                 api_logger.log("Error: No images were successfully processed in batch")

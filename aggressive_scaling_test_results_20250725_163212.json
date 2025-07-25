@@ -1,0 +1,111 @@
+{
+  "timestamp": "2025-07-25T16:32:12.450065",
+  "test_config": {
+    "total_images": 10,
+    "concurrent_requests": 10,
+    "burst_size": 5,
+    "burst_interval": 0,
+    "timeout": 180,
+    "test_type": "aggressive_autoscaling"
+  },
+  "results": {
+    "total_requests": 10,
+    "successful_requests": 10,
+    "success_rate": 1.0,
+    "total_duration_seconds": 15.492083072662354,
+    "throughput_requests_per_second": 0.6454909874351374,
+    "throughput_images_per_second": 0.6454909874351374
+  },
+  "raw_results": [
+    {
+      "request_id": 8,
+      "success": true,
+      "response_time_ms": 4665.677070617676,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/74aca814-f782-40b2-b4b5-1f443b5291b7.jpg",
+      "timestamp": "2025-07-25T16:32:01.620588",
+      "queue_time": 4665.677070617676
+    },
+    {
+      "request_id": 10,
+      "success": true,
+      "response_time_ms": 4958.805084228516,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/3e66797d-f343-494b-824c-8994e8a293dc.jpg",
+      "timestamp": "2025-07-25T16:32:01.913367",
+      "queue_time": 4958.805084228516
+    },
+    {
+      "request_id": 7,
+      "success": true,
+      "response_time_ms": 5123.831987380981,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/387a6dc0-3464-467b-9273-0282aac614cc.jpg",
+      "timestamp": "2025-07-25T16:32:02.078752",
+      "queue_time": 5123.831987380981
+    },
+    {
+      "request_id": 6,
+      "success": true,
+      "response_time_ms": 6171.12398147583,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/e4512863-861e-4525-bf59-7a6371470493.jpg",
+      "timestamp": "2025-07-25T16:32:03.126172",
+      "queue_time": 6171.12398147583
+    },
+    {
+      "request_id": 3,
+      "success": true,
+      "response_time_ms": 7582.751989364624,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/3492f90c-27ec-4ebf-ac19-fcff29691bce.jpg",
+      "timestamp": "2025-07-25T16:32:04.537591",
+      "queue_time": 7582.751989364624
+    },
+    {
+      "request_id": 1,
+      "success": true,
+      "response_time_ms": 8291.228771209717,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/d6b7958b-9371-4136-bab7-7e0d36cfae0a.jpg",
+      "timestamp": "2025-07-25T16:32:05.246285",
+      "queue_time": 8291.228771209717
+    },
+    {
+      "request_id": 2,
+      "success": true,
+      "response_time_ms": 10181.212902069092,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/f76f3a8b-688c-4562-871e-f29412acc4de.jpg",
+      "timestamp": "2025-07-25T16:32:07.136120",
+      "queue_time": 10181.212902069092
+    },
+    {
+      "request_id": 5,
+      "success": true,
+      "response_time_ms": 11320.322036743164,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/460b5644-8ac5-4943-95e5-f9b96674b7fb.jpg",
+      "timestamp": "2025-07-25T16:32:08.275196",
+      "queue_time": 11320.322036743164
+    },
+    {
+      "request_id": 4,
+      "success": true,
+      "response_time_ms": 14163.769006729126,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/54d7608d-efd8-47f4-92b0-1463bfc25e65.jpg",
+      "timestamp": "2025-07-25T16:32:11.118788",
+      "queue_time": 14163.769006729126
+    },
+    {
+      "request_id": 9,
+      "success": true,
+      "response_time_ms": 15491.329193115234,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/c047343a-0d59-4394-875d-0034e3ccdcb4.jpg",
+      "timestamp": "2025-07-25T16:32:12.446233",
+      "queue_time": 15491.329193115234
+    }
+  ]
+}
