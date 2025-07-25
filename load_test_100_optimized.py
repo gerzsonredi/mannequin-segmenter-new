@@ -15,7 +15,7 @@ from typing import List, Dict, Any
 # Configuration based on real performance data
 SERVICE_URL = "https://mannequin-segmenter-o4c5wdhnoa-ez.a.run.app/infer"
 WORKING_IMAGE = "https://public-images-redivivum.s3.eu-central-1.amazonaws.com/Remix_data/Majka-teniska-Mustang-132434083b.jpg"
-CONCURRENT_REQUESTS = 100
+CONCURRENT_REQUESTS = 50
 TIMEOUT = 600  # 10 minutes timeout (realistic for GPU processing)
 
 # Expected performance based on measurements

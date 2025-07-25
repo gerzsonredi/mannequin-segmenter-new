@@ -16,6 +16,52 @@ import torch
 # from tools.MaskRCNN_segmenter import MaskRCNNSegmenter
 from tools.BirefNet import BiRefNetSegmenter
 
+# CRITICAL: GPU Memory Configuration - Set before any CUDA operations
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "max_split_size_mb=128,expandable_segments=True")
+
+# PyTorch Global Configuration for Inference
+torch.backends.cudnn.benchmark = True  # Good for fixed input size
+torch.set_grad_enabled(False)  # Global inference mode
+
+# Initialize device and AMP dtype
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# Global model initialization - LOAD ONCE
+print("🤖 Loading BiRefNet model globally...")
+try:
+    inferencer = BiRefNetSegmenter(
+        model_path="artifacts/20250703_190222/checkpoint.pt",
+        model_name="zhengpeng7/BiRefNet",
+        precision="fp16",  # Use fp16 for memory efficiency
+        mask_threshold=0.5
+    )
+    
+    # Try to use bfloat16/fp16 for lower memory usage
+    try:
+        # inferencer model should already be in fp16 from precision setting
+        AMP_DTYPE = torch.float16  # Match the model precision
+        print(f"✅ Using AMP dtype: {AMP_DTYPE}")
+    except Exception as e:
+        AMP_DTYPE = torch.float32
+        print(f"⚠️ Fallback to fp32 AMP: {e}")
+        
+    print("✅ Global BiRefNet model loaded successfully!")
+    
+except Exception as e:
+    print(f"❌ Failed to load global model: {e}")
+    inferencer = None
+    AMP_DTYPE = torch.float32
+
+def log_cuda_memory(tag=""):
+    """Log CUDA memory usage for debugging"""
+    if not torch.cuda.is_available():
+        return
+    torch.cuda.synchronize()
+    alloc = torch.cuda.memory_allocated() / 1024**2
+    reserved = torch.cuda.memory_reserved() / 1024**2
+    max_alloc = torch.cuda.max_memory_allocated() / 1024**2
+    print(f"[{tag}] allocated={alloc:.1f}MB reserved={reserved:.1f}MB max_alloc={max_alloc:.1f}MB")
+
 def create_app(testing=False):
     """Application factory for the Flask app."""
     app = Flask(__name__)
@@ -39,29 +85,17 @@ def create_app(testing=False):
         region_name=aws_s3_region
     )
     
-    # Initialize the inferencer.
+    # Use global inferencer - no need to reload
     # In testing, this will be mocked to avoid loading the real model.
     if testing:
+        global inferencer
         inferencer = None  # Will be replaced by mock in tests
     else:
- 
-        try:
-
-            # Initialize the segmenter
-            inferencer = BiRefNetSegmenter(
-                model_path="artifacts/20250703_190222/checkpoint.pt",
-                model_name="zhengpeng7/BiRefNet",    # HuggingFace model
-                precision="fp16",                    # fp16, fp32, or bf16
-                mask_threshold=0.5
-            )
-            if inferencer is None:
-                print("Error! Couldn't load inferencer!")
-                exit(1)
-            print("Inferencer successfully loaded!")
-
-        except Exception as e:
-            inferencer = None
-            print(f"Model loading failed: {e}")
+        # inferencer is already loaded globally
+        if inferencer is None:
+            print("Error! Global inferencer not loaded!")
+            exit(1)
+        print("Using global inferencer!")
 
     @app.route('/health', methods=['GET'])
     def health():
@@ -160,6 +194,7 @@ def create_app(testing=False):
 
     @app.route('/infer', methods=['POST'])
     @limit_concurrent_requests
+    @torch.inference_mode()
     def infer():
         inferencer = current_app.config['INFERENCER'] # Use the inferencer from the app config
         try:
@@ -235,6 +270,7 @@ def create_app(testing=False):
 
     @app.route('/batch_infer', methods=['POST'])
     @limit_concurrent_requests
+    @torch.inference_mode()
     def batch_infer():
         """Batch inference endpoint for processing multiple images simultaneously."""
         inferencer = current_app.config['INFERENCER']
@@ -278,15 +314,44 @@ def create_app(testing=False):
             api_logger.log(f"Processing batch of {batch_size} images")
             print(f"Processing batch of {batch_size} images")
             
-            # Debug batch processing attempt
-            api_logger.log(f"🚀 Starting TRUE BATCH PROCESSING for {batch_size} images")
-            print(f"🚀 Starting TRUE BATCH PROCESSING for {batch_size} images")
+            # Reset peak memory stats for this batch
+            if torch.cuda.is_available():
+                torch.cuda.reset_peak_memory_stats()
+            log_cuda_memory("batch_start")
             
-            # Use the improved batch processing method
-            processed_images = inferencer.process_batch_urls(image_urls, plot=False, max_batch_size=batch_size)
-            
-            api_logger.log(f"🔍 Batch processing result: {len(processed_images) if processed_images else 0} processed images")
-            print(f"🔍 Batch processing result: {len(processed_images) if processed_images else 0} processed images")
+            # Smart batch processing with memory-aware fallback
+            processed_images = None
+            try:
+                api_logger.log(f"🚀 Attempting TRUE BATCH PROCESSING for {batch_size} images")
+                print(f"🚀 Attempting TRUE BATCH PROCESSING for {batch_size} images")
+                
+                # Try true batch processing first
+                processed_images = inferencer.process_batch_urls(image_urls, plot=False, max_batch_size=batch_size)
+                
+                api_logger.log(f"✅ TRUE BATCH SUCCESS: {len(processed_images) if processed_images else 0} processed images")
+                print(f"✅ TRUE BATCH SUCCESS: {len(processed_images) if processed_images else 0} processed images")
+                log_cuda_memory("batch_success")
+                
+            except Exception as batch_error:
+                api_logger.log(f"🔄 Batch processing failed, falling back to parallel single processing: {batch_error}")
+                print(f"🔄 Batch processing failed, falling back to parallel single processing: {batch_error}")
+                
+                # Fallback: Process images individually but efficiently
+                processed_images = []
+                for i, url in enumerate(image_urls):
+                    try:
+                        api_logger.log(f"🔄 Processing image {i+1}/{batch_size} individually")
+                        single_result = inferencer.process_image_url(url, plot=False)
+                        if single_result is not None:
+                            processed_images.append(single_result)
+                        else:
+                            api_logger.log(f"⚠️ Image {i+1} processing returned None")
+                    except Exception as single_error:
+                        api_logger.log(f"❌ Failed to process image {i+1}: {single_error}")
+                        
+                api_logger.log(f"🔄 FALLBACK COMPLETE: {len(processed_images)}/{batch_size} images processed")
+                print(f"🔄 FALLBACK COMPLETE: {len(processed_images)}/{batch_size} images processed")
+                log_cuda_memory("fallback_complete")
             
             if not processed_images or len(processed_images) == 0:
                 api_logger.log("Error: No images were successfully processed in batch")
@@ -343,6 +408,12 @@ def create_app(testing=False):
             api_logger.log(f"Batch processing completed: {len(successful_uploads)}/{batch_size} successful")
             print(f"Batch processing completed: {len(successful_uploads)}/{batch_size} successful")
             
+            # Final memory cleanup
+            log_cuda_memory("batch_end")
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.synchronize()
+            
             return jsonify({
                 "batch_size": batch_size,
                 "successful_count": len(successful_uploads),
@@ -355,6 +426,13 @@ def create_app(testing=False):
             error_msg = f"Error processing batch of {len(image_urls)} images: {str(e)}"
             api_logger.log(error_msg)
             print(error_msg)
+            
+            # Cleanup memory even on error
+            log_cuda_memory("batch_error")
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.synchronize()
+            
             return jsonify({"error": str(e), "batch_size": len(image_urls)}), 500
             
     # Attach objects to app context for easier testing and access

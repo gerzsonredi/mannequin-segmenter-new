@@ -133,6 +133,8 @@ class BiRefNetSegmenter:
                     print(f"Model compilation failed: {compile_error}")
             
             self.model.eval()
+            # Ensure no gradients are computed for inference
+            self.model.requires_grad_(False)
             
             # Apply half precision if using CUDA and fp16 (matching notebook)
             if self.device.type == 'cuda' and self.precision == 'fp16':
@@ -334,15 +336,21 @@ class BiRefNetSegmenter:
                 while mask.ndim > 2:
                     mask = mask.squeeze(0)
                 
-                self.logger.log(f"Inference output shape: {mask.shape}, dtype: {mask.dtype}")
-                print(f"Inference output shape: {mask.shape}, dtype: {mask.dtype}")
+                # CRITICAL: Move to CPU immediately to free GPU memory
+                mask_cpu = mask.detach().cpu()
+                
+                self.logger.log(f"Inference output shape: {mask_cpu.shape}, dtype: {mask_cpu.dtype}")
+                print(f"Inference output shape: {mask_cpu.shape}, dtype: {mask_cpu.dtype}")
+                
+                # Explicit GPU memory cleanup
+                del outputs, extracted_logits, mask
                 
                 # GPU memory cleanup after inference
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
                     torch.cuda.synchronize()
                 
-                return mask
+                return mask_cpu
                 
             except Exception as e:
                 self.logger.log(f"Error during BiRefNet inference: {e}")
@@ -405,9 +413,9 @@ class BiRefNetSegmenter:
                 if extracted_logits is None:
                     self.logger.log("❌ Warning: Could not extract valid output from BiRefNet batch")
                     print("❌ Warning: Could not extract valid output from BiRefNet batch")
-                    # Return empty masks as fallback
+                    # Return empty masks as fallback - CRITICAL: on CPU
                     batch_size = batch_tensor.shape[0]
-                    return torch.zeros((batch_size, 512, 512), device=self.device, dtype=batch_tensor.dtype)
+                    return torch.zeros((batch_size, 512, 512), dtype=torch.float32)  # CPU tensor
                 
                 self.logger.log(f"🔍 Extracted logits shape: {extracted_logits.shape}")
                 print(f"🔍 Extracted logits shape: {extracted_logits.shape}")
@@ -435,10 +443,16 @@ class BiRefNetSegmenter:
                     else:
                         raise ValueError(f"Cannot reshape {batch_masks.shape} to batch format")
                 
-                self.logger.log(f"✅ Batch inference output: {original_shape} -> {batch_masks.shape}, dtype: {batch_masks.dtype}")
-                print(f"✅ Batch inference output: {original_shape} -> {batch_masks.shape}, dtype: {batch_masks.dtype}")
+                # CRITICAL: Move to CPU immediately to free GPU memory
+                batch_masks_cpu = batch_masks.detach().cpu()
                 
-                return batch_masks
+                self.logger.log(f"✅ Batch inference output: {original_shape} -> {batch_masks_cpu.shape}, dtype: {batch_masks_cpu.dtype}")
+                print(f"✅ Batch inference output: {original_shape} -> {batch_masks_cpu.shape}, dtype: {batch_masks_cpu.dtype}")
+                
+                # Explicit GPU memory cleanup
+                del outputs, extracted_logits, batch_masks, batch_tensor
+                
+                return batch_masks_cpu
                 
             except Exception as e:
                 self.logger.log(f"Error during BiRefNet batch inference: {e}")
@@ -464,10 +478,11 @@ class BiRefNetSegmenter:
         """
         try:
             # Convert tensor to numpy with proper type handling
+            # Tensor should already be on CPU from inference functions
             if mask_tensor.dtype == torch.float16:
-                mask_np = mask_tensor.detach().cpu().float().numpy()
+                mask_np = mask_tensor.float().numpy()
             else:
-                mask_np = mask_tensor.detach().cpu().numpy()
+                mask_np = mask_tensor.numpy()
             
             self.logger.log(f"Initial mask shape: {mask_np.shape}, dtype: {mask_np.dtype}")
             print(f"Initial mask shape: {mask_np.shape}, dtype: {mask_np.dtype}")
@@ -730,6 +745,21 @@ class BiRefNetSegmenter:
             torch.cuda.empty_cache()
             gc.collect()
             torch.cuda.synchronize()
+            
+        # Periodic aggressive cache clearing to prevent memory fragmentation
+        if not hasattr(self, '_image_counter'):
+            self._image_counter = 0
+        self._image_counter += 1
+        
+        # Every 10 images, do aggressive cleanup
+        if self._image_counter % 10 == 0:
+            self.logger.log(f"🧹 Aggressive memory cleanup after {self._image_counter} images")
+            print(f"🧹 Aggressive memory cleanup after {self._image_counter} images")
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.ipc_collect()
+                torch.cuda.synchronize()
+            gc.collect()
             
         msg = f"Finished processing image from URL: {image_url}"
         self.logger.log(msg)

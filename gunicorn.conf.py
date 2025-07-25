@@ -11,12 +11,12 @@ backlog = 2048
 workers = 1  # CRITICAL: Single worker to avoid multiple model loading on GPU
 worker_class = "sync"  # Sync worker for Flask
 threads = 3  # Aligned with Cloud Run concurrency=3
-worker_connections = 1000  # Adequate for async processing
+worker_connections = 20  # Adequate for async processing
 timeout = 600  # 10 minutes for model inference
 keepalive = 5
 
 # Restart workers after fewer requests to prevent memory buildup
-max_requests = 100  # Reduced from 1000 to prevent memory leaks
+max_requests = 20  # Reduced from 1000 to prevent memory leaks
 max_requests_jitter = 10  # Reduced jitter
 
 # Logging

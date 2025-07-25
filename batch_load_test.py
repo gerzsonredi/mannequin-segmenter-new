@@ -12,6 +12,17 @@ import json
 import statistics
 from datetime import datetime
 from typing import List, Dict, Any
+import torch
+
+def log_cuda_memory(tag=""):
+    """Log CUDA memory usage for debugging"""
+    if not torch.cuda.is_available():
+        return
+    torch.cuda.synchronize()
+    alloc = torch.cuda.memory_allocated() / 1024**2
+    reserved = torch.cuda.memory_reserved() / 1024**2
+    max_alloc = torch.cuda.max_memory_allocated() / 1024**2
+    print(f"[{tag}] allocated={alloc:.1f}MB reserved={reserved:.1f}MB max_alloc={max_alloc:.1f}MB")
 
 # Configuration
 SERVICE_URL = "https://mannequin-segmenter-o4c5wdhnoa-ez.a.run.app/batch_infer"
@@ -27,8 +38,8 @@ TEST_IMAGES = [
 ]
 
 # Test configuration - Optimized for your GPU specs (32Gi RAM, 8 CPU, 1x NVIDIA L4)
-BATCH_SIZE = 5  # Images per batch (optimized for GPU utilization) 
-CONCURRENT_BATCHES = 4  # Number of concurrent batch requests (20 total images, testing autoscaling)
+BATCH_SIZE = 1 # Images per batch (testing memory limit)
+CONCURRENT_BATCHES = 1  # Number of concurrent batch requests (single test)
 TIMEOUT = 900  # 15 minutes for batch processing
 
 # Performance expectations
