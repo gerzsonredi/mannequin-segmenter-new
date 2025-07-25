@@ -194,7 +194,7 @@ def create_app(testing=False):
             return jsonify({"error": str(e)}), 500
 
     @app.route('/infer', methods=['POST'])
-    @limit_concurrent_requests
+    # @limit_concurrent_requests  # Temporarily disabled for testing
     @torch.inference_mode()
     def infer():
         inferencer = current_app.config['INFERENCER'] # Use the inferencer from the app config

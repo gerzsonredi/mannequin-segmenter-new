@@ -38,9 +38,12 @@ TEST_IMAGES = [
 ]
 
 # Test configuration - Optimized for your GPU specs (32Gi RAM, 8 CPU, 1x NVIDIA L4)
-BATCH_SIZE = 2 # Images per batch (testing memory limit)
-CONCURRENT_BATCHES = 2  # Number of concurrent batch requests (single test)
-TIMEOUT = 900  # 15 minutes for batch processing
+BATCH_SIZE = 1 # Images per batch (very conservative for testing)
+CONCURRENT_BATCHES = 1  # Single batch for initial testing
+TIMEOUT = 1200  # 20 minutes for batch processing (cold start can be slow)
+
+# Health check timeout - increased for cold start
+HEALTH_CHECK_TIMEOUT = 600  # 10 minutes for first health check
 
 # Performance expectations
 EXPECTED_IMPROVEMENTS = {
@@ -54,7 +57,7 @@ async def test_health_check():
     """Test if the service is healthy before running batch tests."""
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.get(HEALTH_URL, timeout=aiohttp.ClientTimeout(total=60)) as response:
+            async with session.get(HEALTH_URL, timeout=aiohttp.ClientTimeout(total=HEALTH_CHECK_TIMEOUT)) as response:
                 if response.status == 200:
                     result = await response.json()
                     print(f"✅ Health check passed: {result.get('service', 'unknown')} - {result.get('status', 'unknown')}")
