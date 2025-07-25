@@ -54,7 +54,7 @@ gcloud run deploy "$SERVICE_NAME" \
     --max-instances 3 \
     --cpu-boost \
     --execution-environment gen2 \
-    --set-env-vars="ENVIRONMENT=production,PYTHONPATH=/app,CUDA_VISIBLE_DEVICES=0,PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128,expandable_segments:true" \
+    --set-env-vars="ENVIRONMENT=production,PYTHONPATH=/app,CUDA_VISIBLE_DEVICES=0" \
     --set-secrets="AWS_ACCESS_KEY_ID=aws-access-key:latest" \
     --set-secrets="AWS_SECRET_ACCESS_KEY=aws-secret-key:latest" \
     --set-secrets="AWS_S3_BUCKET_NAME=aws-s3-bucket:latest" \
