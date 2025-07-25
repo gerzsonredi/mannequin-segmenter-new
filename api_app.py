@@ -13,7 +13,7 @@ import os
 import uuid
 from datetime import datetime
 # CRITICAL: Set environment variables BEFORE importing torch
-os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "max_split_size_mb=128,expandable_segments=True")
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "max_split_size_mb:128,expandable_segments:true")
 os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
 
 import torch

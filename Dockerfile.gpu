@@ -48,7 +48,7 @@ RUN mkdir -p /app/artifacts /app/tools
 # Set environment variables for Python and GPU (Flask optimized)
 ENV PYTHONPATH=/app
 ENV PORT=5001
-ENV PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb=128,expandable_segments=True
+ENV PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128,expandable_segments:true
 ENV OMP_NUM_THREADS=8
 ENV MKL_NUM_THREADS=8
 
