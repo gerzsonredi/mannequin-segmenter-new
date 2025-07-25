@@ -58,8 +58,13 @@ gcloud run deploy "$SERVICE_NAME" \
     --set-secrets="AWS_ACCESS_KEY_ID=aws-access-key:latest" \
     --set-secrets="AWS_SECRET_ACCESS_KEY=aws-secret-key:latest" \
     --set-secrets="AWS_S3_BUCKET_NAME=aws-s3-bucket:latest" \
-    --set-secrets="AWS_S3_REGION=aws-s3-region:latest" \
-    --traffic=100
+    --set-secrets="AWS_S3_REGION=aws-s3-region:latest"
+
+# Route 100% traffic to the latest revision
+echo "🔄 Routing 100% traffic to latest revision..."
+gcloud run services update-traffic "$SERVICE_NAME" \
+    --region "$REGION" \
+    --to-latest
 
 # Get service URL
 SERVICE_URL=$(gcloud run services describe "$SERVICE_NAME" --platform managed --region "$REGION" --format 'value(status.url)')
