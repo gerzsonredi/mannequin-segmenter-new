@@ -55,6 +55,15 @@ class BiRefNetSegmenter:
         self.logger.log("Initializing BiRefNet Segmenter")
         print("Initializing BiRefNet Segmenter")
         
+        # Set performance environment variables programmatically (fallback if not set)
+        import os
+        if not os.getenv('PYTORCH_CUDA_ALLOC_CONF'):
+            os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:64,expandable_segments:true'
+        if not os.getenv('OMP_NUM_THREADS'):
+            os.environ['OMP_NUM_THREADS'] = '8'
+        if not os.getenv('MKL_NUM_THREADS'):
+            os.environ['MKL_NUM_THREADS'] = '8'
+        
         # Detailed GPU detection
         cuda_available = torch.cuda.is_available()
         mps_available = torch.backends.mps.is_available() if hasattr(torch.backends, 'mps') else False
