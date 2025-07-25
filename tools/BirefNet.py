@@ -51,16 +51,39 @@ class BiRefNetSegmenter:
         # Initialize logger
         self.logger = AppLogger()
         
-        # Device setup
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # Enhanced Device setup with detailed detection
         self.logger.log("Initializing BiRefNet Segmenter")
         print("Initializing BiRefNet Segmenter")
         
-        # GPU Memory Management Optimization
-        if torch.cuda.is_available():
+        # Detailed GPU detection
+        cuda_available = torch.cuda.is_available()
+        mps_available = torch.backends.mps.is_available() if hasattr(torch.backends, 'mps') else False
+        
+        self.logger.log(f"CUDA available: {cuda_available}")
+        self.logger.log(f"MPS available: {mps_available}")
+        print(f"CUDA available: {cuda_available}")
+        print(f"MPS available: {mps_available}")
+        
+        if cuda_available:
+            self.device = torch.device("cuda")
+            gpu_name = torch.cuda.get_device_name(0)
+            gpu_memory = torch.cuda.get_device_properties(0).total_memory / (1024**3)  # GB
+            self.logger.log(f"Using CUDA GPU: {gpu_name} ({gpu_memory:.1f}GB)")
+            print(f"Using CUDA GPU: {gpu_name} ({gpu_memory:.1f}GB)")
+            
+            # GPU Memory Management Optimization
             torch.cuda.set_per_process_memory_fraction(0.9)  # Leave space for driver
             torch.backends.cuda.matmul.allow_tf32 = True  # Enable TF32 for better performance
             self.logger.log("GPU memory management optimizations enabled")
+            
+        elif mps_available:
+            self.device = torch.device("mps")
+            self.logger.log("Using MPS (Apple Silicon GPU)")
+            print("Using MPS (Apple Silicon GPU)")
+        else:
+            self.device = torch.device("cpu")
+            self.logger.log("Using CPU (no GPU acceleration available)")
+            print("Using CPU (no GPU acceleration available)")
         
         # Initialize BiRefNet model
         try:

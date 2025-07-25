@@ -1,0 +1,71 @@
+{
+  "timestamp": "2025-07-24T16:16:29.568125",
+  "test_config": {
+    "concurrent_batches": 6,
+    "batch_size": 3,
+    "total_images": 18,
+    "timeout": 900
+  },
+  "results": {
+    "total_batches": 6,
+    "successful_batches": 0,
+    "batch_success_rate": 0.0,
+    "total_duration_seconds": 9.852965116500854
+  },
+  "raw_results": [
+    {
+      "batch_id": 5,
+      "success": false,
+      "response_time_ms": 4085.8912467956543,
+      "status_code": 500,
+      "error": "{\"error\":\"Failed to process any images in batch\"}\n",
+      "batch_size": 3,
+      "timestamp": "2025-07-24T16:16:23.800159"
+    },
+    {
+      "batch_id": 2,
+      "success": false,
+      "response_time_ms": 4158.091068267822,
+      "status_code": 500,
+      "error": "{\"error\":\"Failed to process any images in batch\"}\n",
+      "batch_size": 3,
+      "timestamp": "2025-07-24T16:16:23.872014"
+    },
+    {
+      "batch_id": 1,
+      "success": false,
+      "response_time_ms": 5927.041053771973,
+      "status_code": 500,
+      "error": "{\"error\":\"Failed to process any images in batch\"}\n",
+      "batch_size": 3,
+      "timestamp": "2025-07-24T16:16:25.641791"
+    },
+    {
+      "batch_id": 6,
+      "success": false,
+      "response_time_ms": 5952.140092849731,
+      "status_code": 500,
+      "error": "{\"error\":\"Failed to process any images in batch\"}\n",
+      "batch_size": 3,
+      "timestamp": "2025-07-24T16:16:25.665273"
+    },
+    {
+      "batch_id": 3,
+      "success": false,
+      "response_time_ms": 6410.553932189941,
+      "status_code": 500,
+      "error": "{\"error\":\"Failed to process any images in batch\"}\n",
+      "batch_size": 3,
+      "timestamp": "2025-07-24T16:16:26.125506"
+    },
+    {
+      "batch_id": 4,
+      "success": false,
+      "response_time_ms": 9850.99482536316,
+      "status_code": 500,
+      "error": "{\"error\":\"Failed to process any images in batch\"}\n",
+      "batch_size": 3,
+      "timestamp": "2025-07-24T16:16:29.565498"
+    }
+  ]
+}

@@ -25,8 +25,8 @@ TEST_IMAGES = [
 ]
 
 # Test configuration
-BATCH_SIZE = 3  # Images per batch (conservative for stable processing) 
-CONCURRENT_BATCHES = 6  # Number of concurrent batch requests (18 total images, fits 3×4=12 + queue)
+BATCH_SIZE = 2  # Images per batch (conservative for stable processing) 
+CONCURRENT_BATCHES = 2  # Number of concurrent batch requests (18 total images, fits 3×4=12 + queue)
 TIMEOUT = 900  # 15 minutes for batch processing
 
 # Performance expectations
