@@ -12,12 +12,13 @@ from dotenv import load_dotenv
 import os
 import uuid
 from datetime import datetime
+# CRITICAL: Set environment variables BEFORE importing torch
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "max_split_size_mb=128,expandable_segments=True")
+os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
+
 import torch
 # from tools.MaskRCNN_segmenter import MaskRCNNSegmenter
 from tools.BirefNet import BiRefNetSegmenter
-
-# CRITICAL: GPU Memory Configuration - Set before any CUDA operations
-os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "max_split_size_mb=128,expandable_segments=True")
 
 # PyTorch Global Configuration for Inference
 torch.backends.cudnn.benchmark = True  # Good for fixed input size

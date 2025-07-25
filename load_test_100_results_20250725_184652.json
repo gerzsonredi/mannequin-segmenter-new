@@ -1,0 +1,417 @@
+{
+  "timestamp": "2025-07-25T18:46:52.321192",
+  "test_config": {
+    "concurrent_requests": 50,
+    "timeout": 600,
+    "service_url": "https://mannequin-segmenter-o4c5wdhnoa-ez.a.run.app/infer",
+    "test_image": "https://public-images-redivivum.s3.eu-central-1.amazonaws.com/Remix_data/Majka-teniska-Mustang-132434083b.jpg"
+  },
+  "overall_stats": {
+    "total_requests": 50,
+    "successful_requests": 50,
+    "success_rate": 1.0,
+    "total_duration_seconds": 44.75823926925659
+  },
+  "raw_results": [
+    {
+      "request_id": 41,
+      "success": true,
+      "response_time_ms": 13444.492101669312,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/65af8134-1017-4a8c-80aa-9ec9b0875a56.jpg",
+      "timestamp": "2025-07-25T18:46:21.003987"
+    },
+    {
+      "request_id": 29,
+      "success": true,
+      "response_time_ms": 13687.937021255493,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/ac5404e3-6506-442e-9fa6-cfc01bc7bae6.jpg",
+      "timestamp": "2025-07-25T18:46:21.246675"
+    },
+    {
+      "request_id": 50,
+      "success": true,
+      "response_time_ms": 13940.979957580566,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/c403d22c-23a8-4cc9-a0e3-82c88ee8d5c2.jpg",
+      "timestamp": "2025-07-25T18:46:21.499941"
+    },
+    {
+      "request_id": 5,
+      "success": true,
+      "response_time_ms": 14646.004915237427,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/4859d299-b560-4225-aa01-fd26dbb8be04.jpg",
+      "timestamp": "2025-07-25T18:46:22.205544"
+    },
+    {
+      "request_id": 28,
+      "success": true,
+      "response_time_ms": 15179.882049560547,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/b20b056b-8834-4b57-86e2-9c816e6730c1.jpg",
+      "timestamp": "2025-07-25T18:46:22.738507"
+    },
+    {
+      "request_id": 49,
+      "success": true,
+      "response_time_ms": 15269.739866256714,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/a2bc1b96-f318-4f26-8e26-0fe76d9a3258.jpg",
+      "timestamp": "2025-07-25T18:46:22.828607"
+    },
+    {
+      "request_id": 3,
+      "success": true,
+      "response_time_ms": 15389.450073242188,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/d49012c6-494c-4d52-87c7-f44d8b192a74.jpg",
+      "timestamp": "2025-07-25T18:46:22.948888"
+    },
+    {
+      "request_id": 31,
+      "success": true,
+      "response_time_ms": 16532.840967178345,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/d9cde031-aa1b-4d38-89b3-5536912b2b92.jpg",
+      "timestamp": "2025-07-25T18:46:24.091737"
+    },
+    {
+      "request_id": 9,
+      "success": true,
+      "response_time_ms": 17042.162895202637,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/4313aba1-da74-4e8f-b83f-b77b7619c83c.jpg",
+      "timestamp": "2025-07-25T18:46:24.600580"
+    },
+    {
+      "request_id": 35,
+      "success": true,
+      "response_time_ms": 18425.039052963257,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/9b155697-d701-4d3c-bf74-9bc3ae70d5b5.jpg",
+      "timestamp": "2025-07-25T18:46:25.984148"
+    },
+    {
+      "request_id": 8,
+      "success": true,
+      "response_time_ms": 18528.93304824829,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/368f036c-845f-45b4-a24e-582525fb41c2.jpg",
+      "timestamp": "2025-07-25T18:46:26.088683"
+    },
+    {
+      "request_id": 1,
+      "success": true,
+      "response_time_ms": 19276.994705200195,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/2b0404ef-293d-495b-8c85-d2868a57a952.jpg",
+      "timestamp": "2025-07-25T18:46:26.836303"
+    },
+    {
+      "request_id": 25,
+      "success": true,
+      "response_time_ms": 20858.135223388672,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/792bf14d-3a4c-471d-914d-432494cf3fab.jpg",
+      "timestamp": "2025-07-25T18:46:28.417790"
+    },
+    {
+      "request_id": 39,
+      "success": true,
+      "response_time_ms": 22991.573095321655,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/e3b2f0b0-a00b-49f5-a783-ddc3bfa0a79e.jpg",
+      "timestamp": "2025-07-25T18:46:30.550923"
+    },
+    {
+      "request_id": 23,
+      "success": true,
+      "response_time_ms": 23064.399003982544,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/2b5746ef-b2db-48bb-bf20-8403d16501b3.jpg",
+      "timestamp": "2025-07-25T18:46:30.623937"
+    },
+    {
+      "request_id": 36,
+      "success": true,
+      "response_time_ms": 23154.250860214233,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/c21c511f-0b14-447c-95bf-1fe0b30e6ce6.jpg",
+      "timestamp": "2025-07-25T18:46:30.713414"
+    },
+    {
+      "request_id": 40,
+      "success": true,
+      "response_time_ms": 23499.041080474854,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/e3885869-9191-42a2-b3f5-c6464f349866.jpg",
+      "timestamp": "2025-07-25T18:46:31.058481"
+    },
+    {
+      "request_id": 18,
+      "success": true,
+      "response_time_ms": 24012.75086402893,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/f30c0d93-1a98-4acf-9b68-d333e915ad1b.jpg",
+      "timestamp": "2025-07-25T18:46:31.571931"
+    },
+    {
+      "request_id": 45,
+      "success": true,
+      "response_time_ms": 24877.87103652954,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/fbba22c7-bd3a-4d37-aeb2-ac12b6e70e15.jpg",
+      "timestamp": "2025-07-25T18:46:32.437684"
+    },
+    {
+      "request_id": 6,
+      "success": true,
+      "response_time_ms": 25624.431848526,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/f7448945-eef4-48fe-b5bc-33b275c6f676.jpg",
+      "timestamp": "2025-07-25T18:46:33.184049"
+    },
+    {
+      "request_id": 32,
+      "success": true,
+      "response_time_ms": 25748.58593940735,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/966352fd-ff7a-48a8-b88c-f7d6e7d83913.jpg",
+      "timestamp": "2025-07-25T18:46:33.307579"
+    },
+    {
+      "request_id": 4,
+      "success": true,
+      "response_time_ms": 26124.516010284424,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/8c437345-69b1-47c1-af82-dd5aaa289636.jpg",
+      "timestamp": "2025-07-25T18:46:33.683987"
+    },
+    {
+      "request_id": 30,
+      "success": true,
+      "response_time_ms": 26885.204076766968,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/b8144043-485e-4dc8-b547-7144cae3fc9a.jpg",
+      "timestamp": "2025-07-25T18:46:34.444018"
+    },
+    {
+      "request_id": 15,
+      "success": true,
+      "response_time_ms": 27269.89793777466,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/731ea66e-361c-4d44-b54a-7c5c75dd22bf.jpg",
+      "timestamp": "2025-07-25T18:46:34.828915"
+    },
+    {
+      "request_id": 47,
+      "success": true,
+      "response_time_ms": 28059.515953063965,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/5647dd4c-da6c-4445-a9e0-179d80c0e38a.jpg",
+      "timestamp": "2025-07-25T18:46:35.618202"
+    },
+    {
+      "request_id": 27,
+      "success": true,
+      "response_time_ms": 28830.721855163574,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/178e1b6d-c9df-46fd-a620-e88492534bb0.jpg",
+      "timestamp": "2025-07-25T18:46:36.390550"
+    },
+    {
+      "request_id": 21,
+      "success": true,
+      "response_time_ms": 29702.335834503174,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/9ed3036d-bf72-4c47-bb72-bf30a5ad2c5d.jpg",
+      "timestamp": "2025-07-25T18:46:37.261691"
+    },
+    {
+      "request_id": 2,
+      "success": true,
+      "response_time_ms": 30744.72212791443,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/1d5e8398-cbd0-4776-8c7f-14c623e4b6dd.jpg",
+      "timestamp": "2025-07-25T18:46:38.303978"
+    },
+    {
+      "request_id": 48,
+      "success": true,
+      "response_time_ms": 31394.801139831543,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/7f178b51-b7d3-4a6d-ad25-2702b4565afd.jpg",
+      "timestamp": "2025-07-25T18:46:38.953584"
+    },
+    {
+      "request_id": 11,
+      "success": true,
+      "response_time_ms": 31585.695028305054,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/caf5d3c8-1f0e-46e2-a3ec-4c11f6775c12.jpg",
+      "timestamp": "2025-07-25T18:46:39.144436"
+    },
+    {
+      "request_id": 17,
+      "success": true,
+      "response_time_ms": 31647.754907608032,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/b0fa6906-8dd5-4127-a847-1da33119053e.jpg",
+      "timestamp": "2025-07-25T18:46:39.206909"
+    },
+    {
+      "request_id": 24,
+      "success": true,
+      "response_time_ms": 32293.567895889282,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/d3ff3fba-67d9-492c-8105-3c6783db40e4.jpg",
+      "timestamp": "2025-07-25T18:46:39.853135"
+    },
+    {
+      "request_id": 14,
+      "success": true,
+      "response_time_ms": 32672.708988189697,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/01c8448b-2e5b-4c65-adcf-79e7f627160b.jpg",
+      "timestamp": "2025-07-25T18:46:40.231687"
+    },
+    {
+      "request_id": 33,
+      "success": true,
+      "response_time_ms": 33028.74493598938,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/92d5d238-8915-4525-b443-ec5938e2dfc6.jpg",
+      "timestamp": "2025-07-25T18:46:40.587734"
+    },
+    {
+      "request_id": 12,
+      "success": true,
+      "response_time_ms": 33611.804246902466,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/04180cb3-d3eb-48ee-b792-c057893c4b9c.jpg",
+      "timestamp": "2025-07-25T18:46:41.170641"
+    },
+    {
+      "request_id": 38,
+      "success": true,
+      "response_time_ms": 33796.05793952942,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/51ad4322-8cb4-4637-8b93-4dcff502d1de.jpg",
+      "timestamp": "2025-07-25T18:46:41.355348"
+    },
+    {
+      "request_id": 34,
+      "success": true,
+      "response_time_ms": 34124.30191040039,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/63038fb0-68cf-4c8c-9e5b-bea9fa53e508.jpg",
+      "timestamp": "2025-07-25T18:46:41.683350"
+    },
+    {
+      "request_id": 20,
+      "success": true,
+      "response_time_ms": 34836.56287193298,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/412ebda4-89ea-4b10-9ad1-5501420b462a.jpg",
+      "timestamp": "2025-07-25T18:46:42.395854"
+    },
+    {
+      "request_id": 42,
+      "success": true,
+      "response_time_ms": 34871.21891975403,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/d044a317-4de3-4ed4-80b1-0313e8acc2ab.jpg",
+      "timestamp": "2025-07-25T18:46:42.430776"
+    },
+    {
+      "request_id": 10,
+      "success": true,
+      "response_time_ms": 35982.325077056885,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/b445994f-05c7-4c73-b17c-9f5fc5dce653.jpg",
+      "timestamp": "2025-07-25T18:46:43.541004"
+    },
+    {
+      "request_id": 16,
+      "success": true,
+      "response_time_ms": 36577.7690410614,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/b80857a0-cb5e-4b8c-8529-47dfc033fe68.jpg",
+      "timestamp": "2025-07-25T18:46:44.136857"
+    },
+    {
+      "request_id": 43,
+      "success": true,
+      "response_time_ms": 37502.15196609497,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/600a02dd-96d8-4727-941c-c5219aabd701.jpg",
+      "timestamp": "2025-07-25T18:46:45.061777"
+    },
+    {
+      "request_id": 13,
+      "success": true,
+      "response_time_ms": 38278.05995941162,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/9244e2e5-f9db-4685-a3c8-48e36b73c763.jpg",
+      "timestamp": "2025-07-25T18:46:45.836978"
+    },
+    {
+      "request_id": 19,
+      "success": true,
+      "response_time_ms": 38333.72116088867,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/ec61f659-3c23-4620-ab93-096373ec18f0.jpg",
+      "timestamp": "2025-07-25T18:46:45.892958"
+    },
+    {
+      "request_id": 26,
+      "success": true,
+      "response_time_ms": 40097.40090370178,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/d8844fbe-459e-4323-8508-590a5640fbd5.jpg",
+      "timestamp": "2025-07-25T18:46:47.657166"
+    },
+    {
+      "request_id": 37,
+      "success": true,
+      "response_time_ms": 40782.36699104309,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/311503c3-3dbb-4940-a4a6-1841f994fae4.jpg",
+      "timestamp": "2025-07-25T18:46:48.341634"
+    },
+    {
+      "request_id": 22,
+      "success": true,
+      "response_time_ms": 40934.44490432739,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/8565bab0-75fc-45f5-9157-c0af1d61c8ea.jpg",
+      "timestamp": "2025-07-25T18:46:48.493903"
+    },
+    {
+      "request_id": 44,
+      "success": true,
+      "response_time_ms": 41187.6699924469,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/1cae6621-e26e-44d2-acf3-17bd49df42e2.jpg",
+      "timestamp": "2025-07-25T18:46:48.747384"
+    },
+    {
+      "request_id": 46,
+      "success": true,
+      "response_time_ms": 44670.872926712036,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/0eaf6724-ddec-40a7-ab3f-dd91a5083b5e.jpg",
+      "timestamp": "2025-07-25T18:46:52.229451"
+    },
+    {
+      "request_id": 7,
+      "success": true,
+      "response_time_ms": 44756.55484199524,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/25/833904d3-4bed-42ca-ab0f-3c1ac222011a.jpg",
+      "timestamp": "2025-07-25T18:46:52.316252"
+    }
+  ]
+}

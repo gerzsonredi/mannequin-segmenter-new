@@ -342,8 +342,11 @@ class BiRefNetSegmenter:
                 self.logger.log(f"Inference output shape: {mask_cpu.shape}, dtype: {mask_cpu.dtype}")
                 print(f"Inference output shape: {mask_cpu.shape}, dtype: {mask_cpu.dtype}")
                 
-                # Explicit GPU memory cleanup
-                del outputs, extracted_logits, mask
+                # Explicit GPU memory cleanup - only delete if variables exist
+                try:
+                    del outputs, extracted_logits, mask
+                except NameError:
+                    pass  # Variables may not exist if there was an earlier exception
                 
                 # GPU memory cleanup after inference
                 if torch.cuda.is_available():
@@ -355,17 +358,23 @@ class BiRefNetSegmenter:
             except Exception as e:
                 self.logger.log(f"Error during BiRefNet inference: {e}")
                 print(f"Error during BiRefNet inference: {e}")
-                self.logger.log(f"Model output type: {type(outputs)}")
-                print(f"Model output type: {type(outputs)}")
-                if isinstance(outputs, (list, tuple)):
-                    self.logger.log(f"Output length: {len(outputs)}")
-                    print(f"Output length: {len(outputs)}")
-                    for i, item in enumerate(outputs[:3]):  # Show first 3 items
-                        self.logger.log(f"Item {i} type: {type(item)}")
-                        print(f"Item {i} type: {type(item)}")
-                        if hasattr(item, 'shape'):
-                            self.logger.log(f"Item {i} shape: {item.shape}")
-                            print(f"Item {i} shape: {item.shape}")
+                
+                # Only try to log outputs if the variable exists
+                try:
+                    self.logger.log(f"Model output type: {type(outputs)}")
+                    print(f"Model output type: {type(outputs)}")
+                    if isinstance(outputs, (list, tuple)):
+                        self.logger.log(f"Output length: {len(outputs)}")
+                        print(f"Output length: {len(outputs)}")
+                        for i, item in enumerate(outputs[:3]):  # Show first 3 items
+                            self.logger.log(f"Item {i} type: {type(item)}")
+                            print(f"Item {i} type: {type(item)}")
+                            if hasattr(item, 'shape'):
+                                self.logger.log(f"Item {i} shape: {item.shape}")
+                                print(f"Item {i} shape: {item.shape}")
+                except NameError:
+                    self.logger.log("Model outputs variable not defined due to early failure")
+                    print("Model outputs variable not defined due to early failure")
                 
                 # GPU memory cleanup even on error
                 if torch.cuda.is_available():
@@ -449,8 +458,11 @@ class BiRefNetSegmenter:
                 self.logger.log(f"✅ Batch inference output: {original_shape} -> {batch_masks_cpu.shape}, dtype: {batch_masks_cpu.dtype}")
                 print(f"✅ Batch inference output: {original_shape} -> {batch_masks_cpu.shape}, dtype: {batch_masks_cpu.dtype}")
                 
-                # Explicit GPU memory cleanup
-                del outputs, extracted_logits, batch_masks, batch_tensor
+                # Explicit GPU memory cleanup - only delete if variables exist
+                try:
+                    del outputs, extracted_logits, batch_masks, batch_tensor
+                except NameError:
+                    pass  # Variables may not exist if there was an earlier exception
                 
                 return batch_masks_cpu
                 
