@@ -54,11 +54,12 @@ gcloud run deploy "$SERVICE_NAME" \
     --max-instances 3 \
     --cpu-boost \
     --execution-environment gen2 \
-    --set-env-vars="ENVIRONMENT=production,PYTHONPATH=/app,CUDA_VISIBLE_DEVICES=0,PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128,expandable_segments=True" \
+    --set-env-vars="ENVIRONMENT=production,PYTHONPATH=/app,CUDA_VISIBLE_DEVICES=0,PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb=128,expandable_segments=True" \
     --set-secrets="AWS_ACCESS_KEY_ID=aws-access-key:latest" \
     --set-secrets="AWS_SECRET_ACCESS_KEY=aws-secret-key:latest" \
     --set-secrets="AWS_S3_BUCKET_NAME=aws-s3-bucket:latest" \
-    --set-secrets="AWS_S3_REGION=aws-s3-region:latest"
+    --set-secrets="AWS_S3_REGION=aws-s3-region:latest" \
+    --traffic=100
 
 # Get service URL
 SERVICE_URL=$(gcloud run services describe "$SERVICE_NAME" --platform managed --region "$REGION" --format 'value(status.url)')

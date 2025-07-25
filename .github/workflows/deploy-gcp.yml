@@ -76,7 +76,8 @@ jobs:
           --set-secrets="AWS_ACCESS_KEY_ID=aws-access-key:latest" \
           --set-secrets="AWS_SECRET_ACCESS_KEY=aws-secret-key:latest" \
           --set-secrets="AWS_S3_BUCKET_NAME=aws-s3-bucket:latest" \
-          --set-secrets="AWS_S3_REGION=aws-s3-region:latest"
+          --set-secrets="AWS_S3_REGION=aws-s3-region:latest" \
+          --traffic=100
 
     - name: Set public access
       run: |

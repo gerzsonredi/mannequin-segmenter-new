@@ -39,20 +39,21 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the entire application
 COPY . /app/
 
+# Explicitly copy gunicorn config to ensure it's available
+COPY gunicorn.conf.py /app/gunicorn.conf.py
+
 # Create necessary directories
 RUN mkdir -p /app/artifacts /app/tools
 
 # Set environment variables for Python and GPU (Flask optimized)
 ENV PYTHONPATH=/app
-ENV FLASK_APP=api_app:app
-ENV FLASK_ENV=production
 ENV PORT=5001
-ENV PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:64,expandable_segments:true
+ENV PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb=128,expandable_segments=True
 ENV OMP_NUM_THREADS=8
 ENV MKL_NUM_THREADS=8
 
 # Expose the port
 EXPOSE 5001
 
-# Command to run the optimized Flask application
-CMD ["gunicorn", "--config", "gunicorn.conf.py", "api_app:app"] 
+# Command to run the Flask application with explicit config path
+CMD ["gunicorn", "--config", "/app/gunicorn.conf.py", "api_app:app"] 

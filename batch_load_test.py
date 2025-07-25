@@ -38,8 +38,8 @@ TEST_IMAGES = [
 ]
 
 # Test configuration - Optimized for your GPU specs (32Gi RAM, 8 CPU, 1x NVIDIA L4)
-BATCH_SIZE = 1 # Images per batch (testing memory limit)
-CONCURRENT_BATCHES = 1  # Number of concurrent batch requests (single test)
+BATCH_SIZE = 2 # Images per batch (testing memory limit)
+CONCURRENT_BATCHES = 2  # Number of concurrent batch requests (single test)
 TIMEOUT = 900  # 15 minutes for batch processing
 
 # Performance expectations
