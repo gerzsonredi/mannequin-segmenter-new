@@ -13,7 +13,8 @@ import os
 import uuid
 from datetime import datetime
 # CRITICAL: Set environment variables BEFORE importing torch
-os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "max_split_size_mb:128")
+# Remove problematic CUDA allocator config to avoid PyTorch crash
+# os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "max_split_size_mb:128")
 os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
 
 import torch
@@ -412,8 +413,9 @@ def create_app(testing=False):
             # Final memory cleanup
             log_cuda_memory("batch_end")
             if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-                torch.cuda.synchronize()
+                # torch.cuda.empty_cache()  # Temporarily disabled - causes PyTorch crash
+                # torch.cuda.synchronize()
+                pass
             
             return jsonify({
                 "batch_size": batch_size,
@@ -431,8 +433,9 @@ def create_app(testing=False):
             # Cleanup memory even on error
             log_cuda_memory("batch_error")
             if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-                torch.cuda.synchronize()
+                # torch.cuda.empty_cache()  # Temporarily disabled - causes PyTorch crash
+                # torch.cuda.synchronize()
+                pass
             
             return jsonify({"error": str(e), "batch_size": len(image_urls)}), 500
             
