@@ -42,7 +42,7 @@ preload_app = False  # Changed to False to avoid model loading issues
 # Environment variables - PERFORMANCE OPTIMIZED
 raw_env = [
     f"PYTHONPATH={os.getenv('PYTHONPATH', '/app')}",
-    "PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128",  # Memory optimization
+    # "PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128",  # Temporarily disabled - causes PyTorch crash
     "OMP_NUM_THREADS=8",  # Optimize CPU threads
     "MKL_NUM_THREADS=8",  # Intel MKL optimization
 ]
