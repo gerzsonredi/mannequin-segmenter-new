@@ -355,8 +355,12 @@ class BiRefNetSegmenter:
                 return mask_cpu
                 
             except Exception as e:
+                import traceback
+                full_error = traceback.format_exc()
                 self.logger.log(f"Error during BiRefNet inference: {e}")
+                self.logger.log(f"Full stack trace: {full_error}")
                 print(f"Error during BiRefNet inference: {e}")
+                print(f"Full stack trace: {full_error}")
                 
                 # Only try to log outputs if the variable exists
                 try:
