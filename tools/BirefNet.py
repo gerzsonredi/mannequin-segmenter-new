@@ -438,7 +438,7 @@ class BiRefNetSegmenter:
     ) -> np.ndarray:
         """
         Remove thin artifacts and stripes from processed image.
-        Same implementation as EVF-SAM for consistency.
+        Standard image cleaning implementation.
         """
         if thickness_threshold is None:
             thickness_threshold = self.thickness_threshold

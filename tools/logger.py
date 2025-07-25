@@ -5,9 +5,9 @@ from .env_utils import get_env_variable
 
 class AppLogger:
     """
-    Simple logger for EVF-SAM application.
+    Simple logger for BiRefNet mannequin segmentation application.
     Logs are saved locally and uploaded to S3 logs-redi bucket.
-    Each day a new log file is created, named with the date and 'evfsam' marker.
+    Each day a new log file is created, named with the date and 'birefnet' marker.
     """
     def __init__(self):
         self.bucket_name = "logs-redi"
@@ -28,7 +28,7 @@ class AppLogger:
 
     def _get_log_file_path(self):
         today = datetime.now().strftime("%Y-%m-%d")
-        filename = f"evfsam_{today}.log"
+        filename = f"birefnet_{today}.log"
         return os.path.join(self.log_dir, filename)
 
     def log(self, message: str):
@@ -43,7 +43,7 @@ class AppLogger:
         if self.s3_client is None:
             return
         try:
-            s3_key = f"evfsam/{os.path.basename(self.log_file)}"
+            s3_key = f"birefnet/{os.path.basename(self.log_file)}"
             self.s3_client.upload_file(self.log_file, self.bucket_name, s3_key)
         except Exception as e:
             # If upload fails, just skip (do not crash the app)

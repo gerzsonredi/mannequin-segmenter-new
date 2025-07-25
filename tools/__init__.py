@@ -1,1 +1,1 @@
-# Tools package for EVF-SAM utilities 
+# Tools package for BiRefNet mannequin segmentation utilities 
