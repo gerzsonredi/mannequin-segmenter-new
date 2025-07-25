@@ -67,8 +67,7 @@ class BiRefNetSegmenter:
         print("Initializing BiRefNet Segmenter")
         
         # Set performance environment variables programmatically (fallback if not set)
-        if not os.getenv('PYTORCH_CUDA_ALLOC_CONF'):
-            os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:64,expandable_segments:true'
+        os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:64,expandable_segments:True'
         if not os.getenv('OMP_NUM_THREADS'):
             os.environ['OMP_NUM_THREADS'] = '8'
         if not os.getenv('MKL_NUM_THREADS'):
