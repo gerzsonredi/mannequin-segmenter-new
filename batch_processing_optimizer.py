@@ -269,9 +269,9 @@ async def run_batch_test(config: BatchTestConfig) -> Dict[str, Any]:
     
     print(f"📦 Generated {len(batches)} batches from {len(all_images)} images")
     
-    # Create session
+    # Create session with increased limits for 40 concurrent batches
     timeout = aiohttp.ClientTimeout(total=None, connect=60)
-    connector = aiohttp.TCPConnector(limit=50, limit_per_host=30)
+    connector = aiohttp.TCPConnector(limit=60, limit_per_host=45)  # ✅ INCREASED: Support 40 concurrent batches
     
     async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
         # Check service readiness
@@ -443,7 +443,7 @@ def create_config_from_args() -> BatchTestConfig:
     parser.add_argument("--batch-size", type=int, default=10, 
                        help="Number of images per batch (1-50)")
     parser.add_argument("--concurrent-batches", type=int, default=3,
-                       help="Number of batches to run in parallel (1-10)")
+                       help="Number of batches to run in parallel (1-40)")  # ✅ FIXED: Updated for 30 model pool
     parser.add_argument("--total-images", type=int, default=50,
                        help="Total number of images to process")
     parser.add_argument("--image-set", choices=list(TEST_IMAGE_SETS.keys()), 
@@ -469,7 +469,7 @@ def create_config_from_args() -> BatchTestConfig:
     
     config = BatchTestConfig()
     config.batch_size = max(1, min(50, args.batch_size))
-    config.concurrent_batches = max(1, min(10, args.concurrent_batches))
+    config.concurrent_batches = max(1, min(40, args.concurrent_batches))  # ✅ FIXED: 30 model pool + oversubscription
     config.total_images = max(1, args.total_images)
     config.image_set = args.image_set
     config.upload_s3 = args.upload_s3
@@ -501,7 +501,7 @@ async def main():
         
         concurrent = input(f"Concurrent batches [{config.concurrent_batches}]: ").strip()
         if concurrent:
-            config.concurrent_batches = max(1, min(10, int(concurrent)))
+            config.concurrent_batches = max(1, min(40, int(concurrent)))  # ✅ FIXED: 30 model pool + oversubscription
         
         total = input(f"Total images [{config.total_images}]: ").strip()
         if total:
