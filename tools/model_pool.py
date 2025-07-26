@@ -256,11 +256,12 @@ def get_global_model_pool() -> BiRefNetModelPool:
         with _pool_lock:
             if _global_model_pool is None:  # Double-check pattern
                 _global_model_pool = BiRefNetModelPool(
-                    pool_size=30,  # ✅ INCREASED FROM 10 TO 30 MODELS
-                    model_path="artifacts/20250703_190222/checkpoint.pt",  # ✅ CUSTOM TRAINED MODEL
-                    model_name="zhengpeng7/BiRefNet",
+                    pool_size=30,  # ✅ SCALED UP: 30 models for maximum parallelism
+                    model_path="models/birefnet_lite_mannequin_segmenter/checkpoint_20250726.pt",  # ✅ NEW BIREFNET_LITE MODEL FROM S3
+                    model_name="zhengpeng7/BiRefNet_lite",  # ✅ Use BiRefNet_lite
                     precision="fp16",
                     vis_save_dir="infer",
+                    thickness_threshold=200,
                     mask_threshold=0.5
                 )
                 _global_model_pool.initialize_pool()

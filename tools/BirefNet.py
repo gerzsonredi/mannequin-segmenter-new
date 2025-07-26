@@ -19,6 +19,15 @@ import uuid
 import threading
 from functools import lru_cache
 from io import BytesIO
+import boto3
+import tempfile
+from torchvision import transforms as T
+from skimage.morphology import binary_opening, disk, binary_closing, remove_small_objects, binary_erosion, binary_dilation
+from scipy.ndimage import label, binary_fill_holes, distance_transform_edt, sobel
+from scipy.ndimage.morphology import binary_dilation as scipy_binary_dilation
+from scipy.spatial.distance import cdist
+from scipy.optimize import minimize_scalar
+import traceback
 
 # Import utilities from tools package
 try:
@@ -70,11 +79,45 @@ def _get_cached_image(image_url: str):
         print(f"⚠️ Image download failed: {e} (URL: {image_url})")
         return None
 
+def _download_model_from_s3(bucket_name: str, s3_key: str, local_path: str) -> bool:
+    """
+    Download custom trained model from S3 bucket.
+    
+    Args:
+        bucket_name: S3 bucket name (e.g., 'artifactsredi')
+        s3_key: S3 object key (e.g., 'models/birefnet_lite_mannequin_segmenter/checkpoint_20250726.pt')
+        local_path: Local file path to save the model
+        
+    Returns:
+        bool: True if download successful, False otherwise
+    """
+    try:
+        print(f"📥 Downloading custom model from S3: s3://{bucket_name}/{s3_key}")
+        
+        # Create S3 client
+        s3_client = boto3.client('s3')
+        
+        # Create directory if it doesn't exist
+        os.makedirs(os.path.dirname(local_path), exist_ok=True)
+        
+        # Download the model file
+        s3_client.download_file(bucket_name, s3_key, local_path)
+        
+        print(f"✅ Model downloaded successfully to: {local_path}")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Failed to download model from S3: {e}")
+        print(f"   Bucket: {bucket_name}")
+        print(f"   Key: {s3_key}")
+        print(f"   Local path: {local_path}")
+        return False
+
 class BiRefNetSegmenter:
     def __init__(
         self,
         model_path: str = None,
-        model_name: str = "zhengpeng7/BiRefNet",
+        model_name: str = "zhengpeng7/BiRefNet_lite",  # ✅ Use BiRefNet_lite model
         precision: str = "fp16",
         vis_save_dir: str = "infer",
         thickness_threshold: int = 200,
@@ -85,7 +128,7 @@ class BiRefNetSegmenter:
         
         Args:
             model_path: Path to the trained BiRefNet model weights (checkpoint.pt)
-            model_name: HuggingFace model name for BiRefNet
+            model_name: HuggingFace model name for BiRefNet (default: BiRefNet_lite)
             precision: Model precision ("fp32", "fp16", "bf16")
             vis_save_dir: Directory for saving visualization outputs
             thickness_threshold: Threshold for removing thin artifacts
@@ -106,117 +149,134 @@ class BiRefNetSegmenter:
         self.logger.log("Initializing BiRefNet Segmenter")
         print("Initializing BiRefNet Segmenter")
         
-        # Set performance environment variables programmatically (fallback if not set)
-        # os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:64'  # Temporarily disabled - causes PyTorch crash
-        if not os.getenv('OMP_NUM_THREADS'):
-            os.environ['OMP_NUM_THREADS'] = '8'
-        if not os.getenv('MKL_NUM_THREADS'):
-            os.environ['MKL_NUM_THREADS'] = '8'
-        
-        # Detailed GPU detection
-        cuda_available = torch.cuda.is_available()
-        mps_available = torch.backends.mps.is_available() if hasattr(torch.backends, 'mps') else False
-        
-        self.logger.log(f"CUDA available: {cuda_available}")
-        self.logger.log(f"MPS available: {mps_available}")
-        print(f"CUDA available: {cuda_available}")
-        print(f"MPS available: {mps_available}")
-        
-        if cuda_available:
-            self.device = torch.device("cuda")
-            gpu_name = torch.cuda.get_device_name(0)
-            gpu_memory = torch.cuda.get_device_properties(0).total_memory / (1024**3)  # GB
-            self.logger.log(f"Using CUDA GPU: {gpu_name} ({gpu_memory:.1f}GB)")
-            print(f"Using CUDA GPU: {gpu_name} ({gpu_memory:.1f}GB)")
+        if torch.cuda.is_available():
+            device_count = torch.cuda.device_count()
+            device_id = 0
+            self.device = torch.device(f"cuda:{device_id}")
+            device_name = torch.cuda.get_device_name(device_id)
+            memory_gb = torch.cuda.get_device_properties(device_id).total_memory / (1024**3)
             
-            # GPU Memory Management Optimization
-            torch.cuda.set_per_process_memory_fraction(0.9)  # Leave space for driver
-            torch.backends.cuda.matmul.allow_tf32 = True  # Enable TF32 for better performance
-            self.logger.log("GPU memory management optimizations enabled")
+            self.logger.log(f"Using GPU: {device_name} (Device {device_id}/{device_count})")
+            self.logger.log(f"Total GPU Memory: {memory_gb:.1f}GB")
+            print(f"Using GPU: {device_name} (Device {device_id}/{device_count})")
+            print(f"Total GPU Memory: {memory_gb:.1f}GB")
             
-        elif mps_available:
-            self.device = torch.device("mps")
-            self.logger.log("Using MPS (Apple Silicon GPU)")
-            print("Using MPS (Apple Silicon GPU)")
+            # Enable GPU optimizations
+            torch.backends.cudnn.benchmark = True
         else:
             self.device = torch.device("cpu")
             self.logger.log("Using CPU (no GPU acceleration available)")
             print("Using CPU (no GPU acceleration available)")
         
-        # Initialize BiRefNet model
+        # ✅ Load BiRefNet_lite model
         try:
-            self.logger.log(f"Loading BiRefNet model: {model_name}")
-            print(f"Loading BiRefNet model: {model_name}")
+            self.logger.log(f"Loading BiRefNet_lite model: {model_name}")
+            print(f"Loading BiRefNet_lite model: {model_name}")
 
             os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
 
+            # 1. Load BiRefNet_lite base model
             self.model = AutoModelForImageSegmentation.from_pretrained(
                 model_name,
                 trust_remote_code=True,
                 config={'model_type': 'custom_segmentation_model'}
             )
             self.model.to(self.device)
-            
-            # Apply performance optimizations
-            if torch.cuda.is_available():
-                # Use channels_last memory format for better GPU utilization
-                self.model = self.model.to(memory_format=torch.channels_last)
-                
-                # DISABLED: torch.compile conflicts with BiRefNet's tensor mutations
-                # The model mutates input tensors which causes "skipping cudagraphs due to mutated inputs"
-                # try:
-                #     self.model = torch.compile(self.model, mode="reduce-overhead")
-                #     self.logger.log("Model compiled successfully with torch.compile")
-                #     print("Model compiled successfully with torch.compile")
-                # except Exception as compile_error:
-                #     self.logger.log(f"Model compilation failed: {compile_error}")
-                #     print(f"Model compilation failed: {compile_error}")
-                self.logger.log("torch.compile disabled - conflicts with BiRefNet tensor mutations")
-                print("torch.compile disabled - conflicts with BiRefNet tensor mutations")
-            
             self.model.eval()
-            # Ensure no gradients are computed for inference
-            self.model.requires_grad_(False)
             
-            # Apply half precision if using CUDA and fp16 (matching notebook)
+            # Apply half precision if using CUDA and fp16
             if self.device.type == 'cuda' and self.precision == 'fp16':
                 self.model.half()
+                self.logger.log("Applied fp16 precision")
+                print("Applied fp16 precision")
+            elif self.precision == 'fp16' and self.device.type == 'cpu':
+                self.logger.log("⚠️ fp16 not supported on CPU, using fp32")
+                print("⚠️ fp16 not supported on CPU, using fp32")
+                self.precision = 'fp32'  # Override to fp32 for CPU
+                self.dtype = torch.float32
                 
         except Exception as e:
-            self.logger.log(f"Error loading BiRefNet model: {e}")
-            print(f"Error loading BiRefNet model: {e}")
+            self.logger.log(f"Error loading BiRefNet_lite model: {e}")
+            print(f"Error loading BiRefNet_lite model: {e}")
             raise e
         
-        # Load custom checkpoint if provided
-        if model_path and os.path.exists(model_path):
-            self.logger.log(f"Loading custom BiRefNet weights from: {model_path}")
-            print(f"Loading custom BiRefNet weights from: {model_path}")
-            try:
-                checkpoint = torch.load(model_path, map_location=self.device, weights_only=False)
-                if 'model_state_dict' in checkpoint:
-                    self.model.load_state_dict(checkpoint['model_state_dict'])
-                elif 'state_dict' in checkpoint:
-                    self.model.load_state_dict(checkpoint['state_dict'])
-                else:
-                    self.model.load_state_dict(checkpoint)
-                self.logger.log("Custom weights loaded successfully")
-                print("Custom weights loaded successfully")
-            except Exception as e:
-                self.logger.log(f"Error loading custom weights: {e}")
-                print(f"Error loading custom weights: {e}")
-                self.logger.log("Continuing with pretrained weights")
-                print("Continuing with pretrained weights")
+        # ✅ 2. Load custom checkpoint from S3 if provided
+        if model_path:
+            self.logger.log(f"🎯 Attempting to load custom checkpoint: {model_path}")
+            print(f"🎯 Attempting to load custom checkpoint: {model_path}")
+            
+            # If model doesn't exist locally, try downloading from S3
+            if not os.path.exists(model_path):
+                self.logger.log(f"📥 Checkpoint not found locally, attempting S3 download...")
+                print(f"📥 Checkpoint not found locally, attempting S3 download...")
+                
+                # S3 configuration for the new model
+                s3_bucket = "artifactsredi"
+                s3_key = "models/birefnet_lite_mannequin_segmenter/checkpoint_20250726.pt"
+                
+                # Download from S3
+                download_success = _download_model_from_s3(s3_bucket, s3_key, model_path)
+                
+                if not download_success:
+                    self.logger.log("❌ Failed to download checkpoint from S3, using pretrained weights")
+                    print("❌ Failed to download checkpoint from S3, using pretrained weights")
+                    model_path = None  # Fall back to pretrained
+            
+            # ✅ 3. Load custom trained weights
+            if model_path and os.path.exists(model_path):
+                try:
+                    self.logger.log(f"🚀 Loading custom checkpoint from: {model_path}")
+                    print(f"🚀 Loading custom checkpoint from: {model_path}")
+                    
+                    # Try loading with weights_only=False first (full compatibility)
+                    try:
+                        checkpoint = torch.load(
+                            model_path, 
+                            map_location=self.device, 
+                            weights_only=False
+                        )
+                    except Exception as weights_error:
+                        self.logger.log(f"⚠️ Standard loading failed, trying weights_only=True: {weights_error}")
+                        print(f"⚠️ Standard loading failed, trying weights_only=True: {weights_error}")
+                        # Fallback: try with weights_only=True to avoid numpy version conflicts
+                        checkpoint = torch.load(
+                            model_path, 
+                            map_location=self.device, 
+                            weights_only=True
+                        )
+                    
+                    # Load model state dict (following the user's example)
+                    if 'model_state_dict' in checkpoint:
+                        self.model.load_state_dict(checkpoint['model_state_dict'])
+                    elif 'state_dict' in checkpoint:
+                        self.model.load_state_dict(checkpoint['state_dict'])
+                    else:
+                        # Direct state dict loading
+                        self.model.load_state_dict(checkpoint)
+                    
+                    self.logger.log("✅ Custom trained weights loaded successfully")
+                    print("✅ Custom trained weights loaded successfully")
+                        
+                except Exception as e:
+                    self.logger.log(f"❌ Error loading custom checkpoint: {e}")
+                    print(f"❌ Error loading custom checkpoint: {e}")
+                    print(f"❌ Traceback: {traceback.format_exc()}")
+                    self.logger.log("⚠️ Continuing with pretrained weights")
+                    print("⚠️ Continuing with pretrained weights")
+            else:
+                self.logger.log("⚠️ No valid checkpoint path, using pretrained BiRefNet_lite")
+                print("⚠️ No valid checkpoint path, using pretrained BiRefNet_lite")
         else:
-            self.logger.log("No custom weights provided, using pretrained model")
-            print("No custom weights provided, using pretrained model")
+            self.logger.log("ℹ️ No checkpoint path provided, using pretrained BiRefNet_lite")
+            print("ℹ️ No checkpoint path provided, using pretrained BiRefNet_lite")
         
-        # Skip processor initialization - use manual preprocessing like notebook
+        # Skip processor initialization - use manual preprocessing
         self.processor = None
         self.logger.log("Using manual preprocessing (matching notebook approach)")
         print("Using manual preprocessing (matching notebook approach)")
         
-        self.logger.log("BiRefNet Segmenter initialized successfully")
-        print("BiRefNet Segmenter initialized successfully")
+        self.logger.log("BiRefNet_lite Segmenter initialized successfully")
+        print("BiRefNet_lite Segmenter initialized successfully")
 
     def _preprocess_image(self, img: np.ndarray) -> torch.Tensor:
         """

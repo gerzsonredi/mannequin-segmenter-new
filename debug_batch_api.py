@@ -12,68 +12,60 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'tools'))
 
 # Import the same way as API
 from tools.BirefNet import BiRefNetSegmenter
+from tools.model_pool import BiRefNetModelPool
 
 def main():
-    print("🔍 DEBUG: Testing batch processing API logic...")
+    print("🐛 DEBUG: Testing BiRefNet_lite with S3 checkpoint...")
     
-    # Test image URL
+    # Test image URLs (working Unsplash URLs)
     image_urls = [
-        "https://public-images-redivivum.s3.eu-central-1.amazonaws.com/Remix_data/Majka-teniska-Mustang-132434083b.jpg"
+        "https://images.unsplash.com/photo-1567401893414-76b7b1e5a7a5?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
+        "https://images.unsplash.com/photo-1558769132-cb1aea458c5e?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
     ]
     
     try:
-        print("🤖 Loading BiRefNetSegmenter (same as API)...")
-        inferencer = BiRefNetSegmenter(
-            model_path="artifacts/20250703_190222/checkpoint.pt",
-            model_name="zhengpeng7/BiRefNet",
+        print("🤖 Loading BiRefNet_lite Model Pool...")
+        model_pool = BiRefNetModelPool(
+            pool_size=2,  # Small pool for debugging
+            model_path="models/birefnet_lite_mannequin_segmenter/checkpoint_20250726.pt",  # ✅ NEW BIREFNET_LITE MODEL FROM S3
+            model_name="zhengpeng7/BiRefNet_lite",  # ✅ Use BiRefNet_lite
             precision="fp16",
+            vis_save_dir="infer",
+            thickness_threshold=200,
             mask_threshold=0.5
         )
-        print("✅ Model loaded successfully!")
+        print("✅ BiRefNet_lite model pool loaded successfully!")
         
-        print(f"\n🚀 Testing batch processing with {len(image_urls)} images...")
-        print(f"📸 Image URLs: {image_urls}")
+        # Test batch processing 
+        print("🔄 Testing batch processing...")
+        processed_images = []
         
-        # Try the exact same call as API
         try:
-            print("🔄 Calling process_batch_urls...")
-            processed_images = inferencer.process_batch_urls(
+            print("🔄 Calling process_batch_requests...")
+            processed_images = model_pool.process_batch_requests(
                 image_urls, 
-                plot=False, 
-                max_batch_size=len(image_urls)
+                plot=False
             )
+            print(f"✅ Batch processing completed: {len([x for x in processed_images if x is not None])}/{len(processed_images)} successful")
             
-            print(f"✅ process_batch_urls returned: {type(processed_images)}")
-            if processed_images:
-                print(f"📊 Number of processed images: {len(processed_images)}")
-                for i, img in enumerate(processed_images):
-                    if img is not None:
-                        print(f"   Image {i+1}: {img.shape} ✅")
-                    else:
-                        print(f"   Image {i+1}: None ❌")
-            else:
-                print("❌ processed_images is None or empty!")
-                
         except Exception as batch_error:
-            print(f"❌ BATCH ERROR: {batch_error}")
-            traceback.print_exc()
+            print(f"❌ Batch processing failed: {batch_error}")
+            print("🔄 Falling back to individual processing...")
             
-            print("\n🔄 Trying fallback: individual processing...")
-            processed_images = []
+            # Fallback to individual processing
             for i, url in enumerate(image_urls):
                 try:
                     print(f"🔄 Processing image {i+1}/{len(image_urls)} individually...")
-                    single_result = inferencer.process_image_url(url, plot=False)
+                    single_result = model_pool.process_single_request(url, plot=False)
                     if single_result is not None:
                         processed_images.append(single_result)
-                        print(f"   ✅ Image {i+1}: {single_result.shape}")
+                        print(f"✅ Image {i+1} processed successfully")
                     else:
-                        print(f"   ❌ Image {i+1}: None")
+                        processed_images.append(None)
+                        print(f"❌ Image {i+1} failed")
                 except Exception as single_error:
-                    print(f"   ❌ Single image {i+1} error: {single_error}")
-                    traceback.print_exc()
-                    
-            print(f"\n🔄 FALLBACK RESULT: {len(processed_images)}/{len(image_urls)} images processed")
+                    print(f"❌ Individual processing failed for image {i+1}: {single_error}")
+                    processed_images.append(None)
         
         # Final check
         if not processed_images or len(processed_images) == 0:
