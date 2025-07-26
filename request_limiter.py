@@ -65,9 +65,9 @@ class RequestLimiter:
                 "load_percentage": (self.active_requests / self.max_concurrent) * 100
             }
 
-# Create global instance with production configuration optimized for GPU workload
-# Increased limits for better testing and Cloud Run compatibility
-request_limiter = RequestLimiter(max_concurrent=10, queue_timeout=300)
+# Create global instance optimized for Model Pool Architecture
+# 20 concurrent requests across 10 model instances = 2x oversubscription for optimal GPU utilization
+request_limiter = RequestLimiter(max_concurrent=20, queue_timeout=300)
 
 def limit_concurrent_requests(f):
     """

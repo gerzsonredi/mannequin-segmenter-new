@@ -1,0 +1,417 @@
+{
+  "timestamp": "2025-07-26T11:05:30.720061",
+  "test_config": {
+    "concurrent_requests": 50,
+    "timeout": 600,
+    "service_url": "https://mannequin-segmenter-o4c5wdhnoa-ez.a.run.app/infer",
+    "test_image": "https://public-images-redivivum.s3.eu-central-1.amazonaws.com/Remix_data/Majka-teniska-Mustang-132434083b.jpg"
+  },
+  "overall_stats": {
+    "total_requests": 50,
+    "successful_requests": 11,
+    "success_rate": 0.22,
+    "total_duration_seconds": 57.05725407600403
+  },
+  "raw_results": [
+    {
+      "request_id": 48,
+      "success": true,
+      "response_time_ms": 2763.2768154144287,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/fc31522d-cede-40d3-a1b2-8cd917782b8b.jpg",
+      "timestamp": "2025-07-26T11:04:36.419014"
+    },
+    {
+      "request_id": 4,
+      "success": true,
+      "response_time_ms": 4994.659185409546,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/bc901e54-5c22-420a-a4fa-bd6423e7ac1c.jpg",
+      "timestamp": "2025-07-26T11:04:38.658678"
+    },
+    {
+      "request_id": 19,
+      "success": true,
+      "response_time_ms": 7334.7461223602295,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/60d996bc-9488-432c-b078-6a412de816ac.jpg",
+      "timestamp": "2025-07-26T11:04:40.999781"
+    },
+    {
+      "request_id": 41,
+      "success": true,
+      "response_time_ms": 9623.603820800781,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/6a64fc3d-cb02-42fb-987e-55f0e2009491.jpg",
+      "timestamp": "2025-07-26T11:04:43.287587"
+    },
+    {
+      "request_id": 11,
+      "success": true,
+      "response_time_ms": 11890.637874603271,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/c4fc8f23-3530-4506-ab2f-81e66f573123.jpg",
+      "timestamp": "2025-07-26T11:04:45.555058"
+    },
+    {
+      "request_id": 40,
+      "success": true,
+      "response_time_ms": 33135.42604446411,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/ce29b797-ff57-42bf-9801-1715914f4fb1.jpg",
+      "timestamp": "2025-07-26T11:05:06.802172"
+    },
+    {
+      "request_id": 29,
+      "success": true,
+      "response_time_ms": 35493.05510520935,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/90fec09a-88eb-469d-acf2-5201cc5716c8.jpg",
+      "timestamp": "2025-07-26T11:05:09.156788"
+    },
+    {
+      "request_id": 43,
+      "success": true,
+      "response_time_ms": 37847.570180892944,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/43867a94-95e3-4111-b6df-223c933253da.jpg",
+      "timestamp": "2025-07-26T11:05:11.512153"
+    },
+    {
+      "request_id": 24,
+      "success": false,
+      "response_time_ms": 40407.4010848999,
+      "status_code": 429,
+      "error": "Rate exceeded.",
+      "timestamp": "2025-07-26T11:05:14.079089"
+    },
+    {
+      "request_id": 9,
+      "success": false,
+      "response_time_ms": 40417.21701622009,
+      "status_code": 429,
+      "error": "Rate exceeded.",
+      "timestamp": "2025-07-26T11:05:14.083912"
+    },
+    {
+      "request_id": 3,
+      "success": false,
+      "response_time_ms": 40417.288064956665,
+      "status_code": 429,
+      "error": "Rate exceeded.",
+      "timestamp": "2025-07-26T11:05:14.084098"
+    },
+    {
+      "request_id": 7,
+      "success": false,
+      "response_time_ms": 40418.424129486084,
+      "status_code": 429,
+      "error": "Rate exceeded.",
+      "timestamp": "2025-07-26T11:05:14.084256"
+    },
+    {
+      "request_id": 21,
+      "success": false,
+      "response_time_ms": 40418.11418533325,
+      "status_code": 429,
+      "error": "Rate exceeded.",
+      "timestamp": "2025-07-26T11:05:14.084372"
+    },
+    {
+      "request_id": 18,
+      "success": false,
+      "response_time_ms": 40419.86703872681,
+      "status_code": 429,
+      "error": "Rate exceeded.",
+      "timestamp": "2025-07-26T11:05:14.084484"
+    },
+    {
+      "request_id": 37,
+      "success": false,
+      "response_time_ms": 40419.50011253357,
+      "status_code": 429,
+      "error": "Rate exceeded.",
+      "timestamp": "2025-07-26T11:05:14.084585"
+    },
+    {
+      "request_id": 8,
+      "success": false,
+      "response_time_ms": 40418.48611831665,
+      "status_code": 429,
+      "error": "Rate exceeded.",
+      "timestamp": "2025-07-26T11:05:14.084703"
+    },
+    {
+      "request_id": 6,
+      "success": false,
+      "response_time_ms": 40419.814109802246,
+      "status_code": 429,
+      "error": "Rate exceeded.",
+      "timestamp": "2025-07-26T11:05:14.084809"
+    },
+    {
+      "request_id": 25,
+      "success": false,
+      "response_time_ms": 40420.013189315796,
+      "status_code": 429,
+      "error": "Rate exceeded.",
+      "timestamp": "2025-07-26T11:05:14.084901"
+    },
+    {
+      "request_id": 44,
+      "success": false,
+      "response_time_ms": 40420.04871368408,
+      "status_code": 429,
+      "error": "Rate exceeded.",
+      "timestamp": "2025-07-26T11:05:14.084982"
+    },
+    {
+      "request_id": 20,
+      "success": false,
+      "response_time_ms": 40419.20804977417,
+      "status_code": 429,
+      "error": "Rate exceeded.",
+      "timestamp": "2025-07-26T11:05:14.085062"
+    },
+    {
+      "request_id": 12,
+      "success": false,
+      "response_time_ms": 40420.36294937134,
+      "status_code": 429,
+      "error": "Rate exceeded.",
+      "timestamp": "2025-07-26T11:05:14.085152"
+    },
+    {
+      "request_id": 38,
+      "success": false,
+      "response_time_ms": 40419.32415962219,
+      "status_code": 429,
+      "error": "Rate exceeded.",
+      "timestamp": "2025-07-26T11:05:14.085232"
+    },
+    {
+      "request_id": 35,
+      "success": false,
+      "response_time_ms": 40421.18191719055,
+      "status_code": 429,
+      "error": "Rate exceeded.",
+      "timestamp": "2025-07-26T11:05:14.085306"
+    },
+    {
+      "request_id": 2,
+      "success": false,
+      "response_time_ms": 40419.426679611206,
+      "status_code": 429,
+      "error": "Rate exceeded.",
+      "timestamp": "2025-07-26T11:05:14.085385"
+    },
+    {
+      "request_id": 50,
+      "success": false,
+      "response_time_ms": 40420.72796821594,
+      "status_code": 429,
+      "error": "Rate exceeded.",
+      "timestamp": "2025-07-26T11:05:14.085466"
+    },
+    {
+      "request_id": 27,
+      "success": false,
+      "response_time_ms": 40419.44122314453,
+      "status_code": 429,
+      "error": "Rate exceeded.",
+      "timestamp": "2025-07-26T11:05:14.085538"
+    },
+    {
+      "request_id": 45,
+      "success": false,
+      "response_time_ms": 40420.35794258118,
+      "status_code": 429,
+      "error": "Rate exceeded.",
+      "timestamp": "2025-07-26T11:05:14.085617"
+    },
+    {
+      "request_id": 47,
+      "success": false,
+      "response_time_ms": 40419.18110847473,
+      "status_code": 429,
+      "error": "Rate exceeded.",
+      "timestamp": "2025-07-26T11:05:14.085684"
+    },
+    {
+      "request_id": 31,
+      "success": false,
+      "response_time_ms": 40420.917987823486,
+      "status_code": 429,
+      "error": "Rate exceeded.",
+      "timestamp": "2025-07-26T11:05:14.085746"
+    },
+    {
+      "request_id": 22,
+      "success": false,
+      "response_time_ms": 40419.16608810425,
+      "status_code": 429,
+      "error": "Rate exceeded.",
+      "timestamp": "2025-07-26T11:05:14.085814"
+    },
+    {
+      "request_id": 17,
+      "success": false,
+      "response_time_ms": 40421.81921005249,
+      "status_code": 429,
+      "error": "Rate exceeded.",
+      "timestamp": "2025-07-26T11:05:14.085876"
+    },
+    {
+      "request_id": 32,
+      "success": false,
+      "response_time_ms": 40420.783042907715,
+      "status_code": 429,
+      "error": "Rate exceeded.",
+      "timestamp": "2025-07-26T11:05:14.085940"
+    },
+    {
+      "request_id": 15,
+      "success": false,
+      "response_time_ms": 40419.67678070068,
+      "status_code": 429,
+      "error": "Rate exceeded.",
+      "timestamp": "2025-07-26T11:05:14.086001"
+    },
+    {
+      "request_id": 23,
+      "success": false,
+      "response_time_ms": 40422.271966934204,
+      "status_code": 429,
+      "error": "Rate exceeded.",
+      "timestamp": "2025-07-26T11:05:14.086062"
+    },
+    {
+      "request_id": 26,
+      "success": false,
+      "response_time_ms": 40420.917987823486,
+      "status_code": 429,
+      "error": "Rate exceeded.",
+      "timestamp": "2025-07-26T11:05:14.086126"
+    },
+    {
+      "request_id": 16,
+      "success": false,
+      "response_time_ms": 40419.42572593689,
+      "status_code": 429,
+      "error": "Rate exceeded.",
+      "timestamp": "2025-07-26T11:05:14.086208"
+    },
+    {
+      "request_id": 10,
+      "success": false,
+      "response_time_ms": 40422.71065711975,
+      "status_code": 429,
+      "error": "Rate exceeded.",
+      "timestamp": "2025-07-26T11:05:14.086277"
+    },
+    {
+      "request_id": 42,
+      "success": false,
+      "response_time_ms": 40419.96622085571,
+      "status_code": 429,
+      "error": "Rate exceeded.",
+      "timestamp": "2025-07-26T11:05:14.086337"
+    },
+    {
+      "request_id": 33,
+      "success": false,
+      "response_time_ms": 40420.34912109375,
+      "status_code": 429,
+      "error": "Rate exceeded.",
+      "timestamp": "2025-07-26T11:05:14.086397"
+    },
+    {
+      "request_id": 28,
+      "success": false,
+      "response_time_ms": 40420.00484466553,
+      "status_code": 429,
+      "error": "Rate exceeded.",
+      "timestamp": "2025-07-26T11:05:14.086454"
+    },
+    {
+      "request_id": 30,
+      "success": false,
+      "response_time_ms": 40422.12104797363,
+      "status_code": 429,
+      "error": "Rate exceeded.",
+      "timestamp": "2025-07-26T11:05:14.086512"
+    },
+    {
+      "request_id": 14,
+      "success": false,
+      "response_time_ms": 40420.57800292969,
+      "status_code": 429,
+      "error": "Rate exceeded.",
+      "timestamp": "2025-07-26T11:05:14.086583"
+    },
+    {
+      "request_id": 49,
+      "success": false,
+      "response_time_ms": 40422.35612869263,
+      "status_code": 429,
+      "error": "Rate exceeded.",
+      "timestamp": "2025-07-26T11:05:14.086640"
+    },
+    {
+      "request_id": 36,
+      "success": false,
+      "response_time_ms": 40422.0552444458,
+      "status_code": 429,
+      "error": "Rate exceeded.",
+      "timestamp": "2025-07-26T11:05:14.086698"
+    },
+    {
+      "request_id": 1,
+      "success": false,
+      "response_time_ms": 40422.54400253296,
+      "status_code": 429,
+      "error": "Rate exceeded.",
+      "timestamp": "2025-07-26T11:05:14.086767"
+    },
+    {
+      "request_id": 34,
+      "success": false,
+      "response_time_ms": 40420.238971710205,
+      "status_code": 429,
+      "error": "Rate exceeded.",
+      "timestamp": "2025-07-26T11:05:14.086836"
+    },
+    {
+      "request_id": 5,
+      "success": false,
+      "response_time_ms": 40422.353982925415,
+      "status_code": 429,
+      "error": "Rate exceeded.",
+      "timestamp": "2025-07-26T11:05:14.086896"
+    },
+    {
+      "request_id": 13,
+      "success": true,
+      "response_time_ms": 40514.167070388794,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/1427a633-337a-409c-b0ba-3f1e46f00d42.jpg",
+      "timestamp": "2025-07-26T11:05:14.179293"
+    },
+    {
+      "request_id": 39,
+      "success": true,
+      "response_time_ms": 51536.733865737915,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/7bdd6840-1e36-49a8-967c-93e0d84a1d36.jpg",
+      "timestamp": "2025-07-26T11:05:25.203065"
+    },
+    {
+      "request_id": 46,
+      "success": true,
+      "response_time_ms": 57046.04530334473,
+      "status_code": 200,
+      "visualization_url": "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/fb7494f3-19fc-4644-af16-aceb61a7316f.jpg",
+      "timestamp": "2025-07-26T11:05:30.712243"
+    }
+  ]
+}

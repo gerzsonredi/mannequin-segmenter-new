@@ -38,8 +38,8 @@ TEST_IMAGES = [
 ]
 
 # Test configuration - Optimized for your GPU specs (32Gi RAM, 8 CPU, 1x NVIDIA L4)
-BATCH_SIZE = 1 # Images per batch (very conservative for testing)
-CONCURRENT_BATCHES = 1  # Single batch for initial testing
+BATCH_SIZE = 5 # Images per batch (very conservative for testing)
+CONCURRENT_BATCHES = 2  # Single batch for initial testing
 TIMEOUT = 1200  # 20 minutes for batch processing (cold start can be slow)
 
 # Health check timeout - increased for cold start

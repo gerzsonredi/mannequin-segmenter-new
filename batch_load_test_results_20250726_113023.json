@@ -1,0 +1,30 @@
+{
+  "timestamp": "2025-07-26T11:30:23.912592",
+  "test_config": {
+    "concurrent_batches": 1,
+    "batch_size": 1,
+    "total_images": 1,
+    "timeout": 1200
+  },
+  "results": {
+    "total_batches": 1,
+    "successful_batches": 1,
+    "batch_success_rate": 1.0,
+    "total_duration_seconds": 3.409161329269409
+  },
+  "raw_results": [
+    {
+      "batch_id": 1,
+      "success": true,
+      "response_time_ms": 3408.154010772705,
+      "status_code": 200,
+      "batch_size": 1,
+      "successful_count": 1,
+      "failed_count": 0,
+      "visualization_urls": [
+        "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_3563ce83-dec1-4c10-a790-94ca7c0a6bc1_0.jpg"
+      ],
+      "timestamp": "2025-07-26T11:30:23.910230"
+    }
+  ]
+}

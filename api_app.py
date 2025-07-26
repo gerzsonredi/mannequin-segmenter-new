@@ -28,30 +28,25 @@ torch.set_grad_enabled(False)  # Global inference mode
 # Initialize device and AMP dtype
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# Global model initialization - LOAD ONCE
-print("🤖 Loading BiRefNet model globally...")
+# Global Model Pool initialization - LOAD 10 MODELS
+print("🏊‍♂️ Loading BiRefNet Model Pool globally...")
 try:
-    inferencer = BiRefNetSegmenter(
-        model_path="artifacts/20250703_190222/checkpoint.pt",
-        model_name="zhengpeng7/BiRefNet",
-        precision="fp16",  # Use fp16 for memory efficiency
-        mask_threshold=0.5
-    )
+    from tools.model_pool import get_global_model_pool
+    model_pool = get_global_model_pool()
     
     # Try to use bfloat16/fp16 for lower memory usage
     try:
-        # inferencer model should already be in fp16 from precision setting
         AMP_DTYPE = torch.float16  # Match the model precision
         print(f"✅ Using AMP dtype: {AMP_DTYPE}")
     except Exception as e:
         AMP_DTYPE = torch.float32
         print(f"⚠️ Fallback to fp32 AMP: {e}")
         
-    print("✅ Global BiRefNet model loaded successfully!")
+    print("✅ Global BiRefNet Model Pool loaded successfully!")
     
 except Exception as e:
-    print(f"❌ Failed to load global model: {e}")
-    inferencer = None
+    print(f"❌ Failed to load global model pool: {e}")
+    model_pool = None
     AMP_DTYPE = torch.float32
 
 def log_cuda_memory(tag=""):
@@ -87,17 +82,17 @@ def create_app(testing=False):
         region_name=aws_s3_region
     )
     
-    # Use global inferencer - no need to reload
-    # In testing, this will be mocked to avoid loading the real model.
+    # Use global model pool - no need to reload
+    # In testing, this will be mocked to avoid loading the real models.
     if testing:
-        global inferencer
-        inferencer = None  # Will be replaced by mock in tests
+        global model_pool
+        model_pool = None  # Will be replaced by mock in tests
     else:
-        # inferencer is already loaded globally
-        if inferencer is None:
-            print("Error! Global inferencer not loaded!")
+        # model_pool is already loaded globally
+        if model_pool is None:
+            print("Error! Global model pool not loaded!")
             exit(1)
-        print("Using global inferencer!")
+        print("Using global model pool!")
 
     @app.route('/health', methods=['GET'])
     def health():
@@ -111,16 +106,40 @@ def create_app(testing=False):
     
     @app.route('/status', methods=['GET'])
     def status():
-        """Get current server load and request limiter status."""
+        """Get current server load, request limiter status, and model pool stats."""
         limiter_status = get_limiter_status()
+        pool_stats = model_pool.get_stats() if model_pool else {"error": "Model pool not available"}
+        
         return jsonify({
             'service': 'mannequin-segmenter-api',
             'timestamp': datetime.utcnow().isoformat(),
             'request_limiter': limiter_status,
+            'model_pool': pool_stats,
             'recommendation': {
                 'load_level': 'low' if limiter_status['load_percentage'] < 50 else 'high' if limiter_status['load_percentage'] < 90 else 'critical',
-                'can_accept_requests': limiter_status['slots_available'] > 0
+                'can_accept_requests': limiter_status['slots_available'] > 0 and pool_stats.get('available_models', 0) > 0
             }
+        })
+    
+    @app.route('/pool_stats', methods=['GET'])
+    def pool_stats():
+        """Get detailed model pool statistics."""
+        if model_pool is None:
+            return jsonify({"error": "Model pool not available"}), 500
+            
+        stats = model_pool.get_stats()
+        
+        # Add GPU memory info if available
+        if torch.cuda.is_available():
+            stats['gpu_memory'] = {
+                'allocated_gb': torch.cuda.memory_allocated() / 1024**3,
+                'reserved_gb': torch.cuda.memory_reserved() / 1024**3,
+                'max_allocated_gb': torch.cuda.max_memory_allocated() / 1024**3
+            }
+        
+        return jsonify({
+            'timestamp': datetime.utcnow().isoformat(),
+            'pool_statistics': stats
         })
     
     @app.route('/debug_batch', methods=['POST'])
@@ -198,7 +217,7 @@ def create_app(testing=False):
     # @limit_concurrent_requests  # Temporarily disabled for testing
     @torch.inference_mode()
     def infer():
-        inferencer = current_app.config['INFERENCER'] # Use the inferencer from the app config
+        model_pool = current_app.config['MODEL_POOL']  # Use the model pool from the app config
         try:
             api_logger.log("Received inference request")
             print("Received inference request")
@@ -210,12 +229,12 @@ def create_app(testing=False):
 
             image_url = data['image_url']
 
-            # Check if model loaded successfully
-            if inferencer is None:
-                api_logger.log("ERROR: Model not loaded, returning test response")
-                print("ERROR: Model not loaded, returning test response")
+            # Check if model pool loaded successfully
+            if model_pool is None:
+                api_logger.log("ERROR: Model pool not loaded, returning test response")
+                print("ERROR: Model pool not loaded, returning test response")
                 return jsonify({
-                    "error": "model failed to load",
+                    "error": "model pool failed to load",
                     "visualization_url": "https://test-response.example.com/test.jpg",
                     "input_url": image_url
                 }), 500 # Return 500 as it's a server-side issue
@@ -225,12 +244,12 @@ def create_app(testing=False):
             return jsonify({"error": str(e)}), 500
         
         try:
-            print("Step 3: About to call process_image_url")
-            api_logger.log("Step 3: About to call process_image_url")
-            # vis = inferencer.process_image_url(image_url, plot=False, prompt_mode=prompt_mode)
-            vis = inferencer.process_image_url(image_url)
-            print("Step 4: process_image_url completed")
-            api_logger.log("Step 4: process_image_url completed")
+            print("Step 3: About to call model pool process_single_request")
+            api_logger.log("Step 3: About to call model pool process_single_request")
+            # Use model pool for processing - automatically handles model selection and threading
+            vis = model_pool.process_single_request(image_url, plot=False)
+            print("Step 4: model pool process_single_request completed")
+            api_logger.log("Step 4: model pool process_single_request completed")
 
             if vis is None:
                 print(f"Error: Failed to process image from URL: {image_url}")
@@ -274,8 +293,8 @@ def create_app(testing=False):
     @limit_concurrent_requests
     @torch.inference_mode()
     def batch_infer():
-        """Batch inference endpoint for processing multiple images simultaneously."""
-        inferencer = current_app.config['INFERENCER']
+        """Batch inference endpoint for processing multiple images simultaneously using model pool."""
+        model_pool = current_app.config['MODEL_POOL']
         try:
             api_logger.log("Received batch inference request")
             print("Received batch inference request")
@@ -292,17 +311,17 @@ def create_app(testing=False):
                 print("Error: image_urls must be a non-empty list")
                 return jsonify({"error": "image_urls must be a non-empty list"}), 400
                 
-            if len(image_urls) > 20:  # Limit batch size
-                api_logger.log(f"Error: batch size {len(image_urls)} exceeds maximum of 20")
-                print(f"Error: batch size {len(image_urls)} exceeds maximum of 20")
-                return jsonify({"error": "Maximum batch size is 20 images"}), 400
+            if len(image_urls) > 50:  # Increased limit for model pool (was 20)
+                api_logger.log(f"Error: batch size {len(image_urls)} exceeds maximum of 50")
+                print(f"Error: batch size {len(image_urls)} exceeds maximum of 50")
+                return jsonify({"error": "Maximum batch size is 50 images"}), 400
 
-            # Check if model loaded successfully
-            if inferencer is None:
-                api_logger.log("ERROR: Model not loaded for batch processing")
-                print("ERROR: Model not loaded for batch processing")
+            # Check if model pool loaded successfully
+            if model_pool is None:
+                api_logger.log("ERROR: Model pool not loaded for batch processing")
+                print("ERROR: Model pool not loaded for batch processing")
                 return jsonify({
-                    "error": "model failed to load",
+                    "error": "model pool failed to load",
                     "batch_size": len(image_urls)
                 }), 500
 
@@ -313,47 +332,45 @@ def create_app(testing=False):
         
         try:
             batch_size = len(image_urls)
-            api_logger.log(f"Processing batch of {batch_size} images")
-            print(f"Processing batch of {batch_size} images")
+            api_logger.log(f"🏊‍♂️ Processing batch of {batch_size} images using MODEL POOL with parallel processing")
+            print(f"🏊‍♂️ Processing batch of {batch_size} images using MODEL POOL with parallel processing")
             
             # Reset peak memory stats for this batch
             if torch.cuda.is_available():
                 torch.cuda.reset_peak_memory_stats()
             log_cuda_memory("batch_start")
             
-            # Smart batch processing with memory-aware fallback
-            processed_images = None
+            # Get pool stats before processing
+            pool_stats = model_pool.get_stats()
+            api_logger.log(f"📊 Pool stats before processing: {pool_stats['available_models']}/{pool_stats['pool_size']} models available")
+            print(f"📊 Pool stats before processing: {pool_stats['available_models']}/{pool_stats['pool_size']} models available")
+            
+            # Use model pool for PARALLEL batch processing across multiple models
             try:
-                api_logger.log(f"🚀 Attempting TRUE BATCH PROCESSING for {batch_size} images")
-                print(f"🚀 Attempting TRUE BATCH PROCESSING for {batch_size} images")
+                api_logger.log(f"🚀 Starting PARALLEL BATCH PROCESSING across {pool_stats['pool_size']} models")
+                print(f"🚀 Starting PARALLEL BATCH PROCESSING across {pool_stats['pool_size']} models")
                 
-                # Try true batch processing first
-                processed_images = inferencer.process_batch_urls(image_urls, plot=False, max_batch_size=batch_size)
+                # Model pool automatically distributes requests across available models
+                processed_images = model_pool.process_batch_requests(image_urls, plot=False)
                 
-                api_logger.log(f"✅ TRUE BATCH SUCCESS: {len(processed_images) if processed_images else 0} processed images")
-                print(f"✅ TRUE BATCH SUCCESS: {len(processed_images) if processed_images else 0} processed images")
+                # Filter out None results
+                valid_images = [img for img in processed_images if img is not None]
+                
+                api_logger.log(f"✅ PARALLEL BATCH SUCCESS: {len(valid_images)}/{batch_size} images processed")
+                print(f"✅ PARALLEL BATCH SUCCESS: {len(valid_images)}/{batch_size} images processed")
                 log_cuda_memory("batch_success")
                 
-            except Exception as batch_error:
-                api_logger.log(f"🔄 Batch processing failed, falling back to parallel single processing: {batch_error}")
-                print(f"🔄 Batch processing failed, falling back to parallel single processing: {batch_error}")
+                # Get pool stats after processing
+                final_stats = model_pool.get_stats()
+                api_logger.log(f"📊 Pool stats after processing: {final_stats['available_models']}/{final_stats['pool_size']} models available, {final_stats['active_requests']} active")
+                print(f"📊 Pool stats after processing: {final_stats['available_models']}/{final_stats['pool_size']} models available, {final_stats['active_requests']} active")
                 
-                # Fallback: Process images individually but efficiently
-                processed_images = []
-                for i, url in enumerate(image_urls):
-                    try:
-                        api_logger.log(f"🔄 Processing image {i+1}/{batch_size} individually")
-                        single_result = inferencer.process_image_url(url, plot=False)
-                        if single_result is not None:
-                            processed_images.append(single_result)
-                        else:
-                            api_logger.log(f"⚠️ Image {i+1} processing returned None")
-                    except Exception as single_error:
-                        api_logger.log(f"❌ Failed to process image {i+1}: {single_error}")
-                        
-                api_logger.log(f"🔄 FALLBACK COMPLETE: {len(processed_images)}/{batch_size} images processed")
-                print(f"🔄 FALLBACK COMPLETE: {len(processed_images)}/{batch_size} images processed")
-                log_cuda_memory("fallback_complete")
+                processed_images = valid_images
+                
+            except Exception as batch_error:
+                api_logger.log(f"❌ Model pool batch processing failed: {batch_error}")
+                print(f"❌ Model pool batch processing failed: {batch_error}")
+                return jsonify({"error": f"Batch processing failed: {str(batch_error)}"}), 500
             
             if not processed_images or len(processed_images) == 0:
                 api_logger.log("Error: No images were successfully processed in batch")
@@ -441,7 +458,7 @@ def create_app(testing=False):
             
     # Attach objects to app context for easier testing and access
     app.config['S3_CLIENT'] = s3_client
-    app.config['INFERENCER'] = inferencer
+    app.config['MODEL_POOL'] = model_pool
     app.config['API_LOGGER'] = api_logger
     # app.config['DEFAULT_PROMPT_MODE'] = default_prompt_mode
 

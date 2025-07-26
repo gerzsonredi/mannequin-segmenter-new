@@ -1,0 +1,45 @@
+{
+  "timestamp": "2025-07-26T12:12:42.294421",
+  "test_config": {
+    "concurrent_batches": 2,
+    "batch_size": 2,
+    "total_images": 4,
+    "timeout": 1200
+  },
+  "results": {
+    "total_batches": 2,
+    "successful_batches": 2,
+    "batch_success_rate": 1.0,
+    "total_duration_seconds": 7.213529825210571
+  },
+  "raw_results": [
+    {
+      "batch_id": 2,
+      "success": true,
+      "response_time_ms": 7177.884101867676,
+      "status_code": 200,
+      "batch_size": 2,
+      "successful_count": 2,
+      "failed_count": 0,
+      "visualization_urls": [
+        "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_4a0824f8-41fa-471a-a9cb-cf7ae0507da7_0.jpg",
+        "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_9812900b-4720-4d07-a0c5-c08796bf62a8_1.jpg"
+      ],
+      "timestamp": "2025-07-26T12:12:42.256303"
+    },
+    {
+      "batch_id": 1,
+      "success": true,
+      "response_time_ms": 7212.127923965454,
+      "status_code": 200,
+      "batch_size": 2,
+      "successful_count": 2,
+      "failed_count": 0,
+      "visualization_urls": [
+        "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_11be4b98-cd0c-4843-9bd0-55dfeaa888b9_0.jpg",
+        "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_fe3b1ecb-2d36-4fd6-8e56-64995cfbfdf4_1.jpg"
+      ],
+      "timestamp": "2025-07-26T12:12:42.291286"
+    }
+  ]
+}
