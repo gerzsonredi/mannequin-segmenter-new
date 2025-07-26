@@ -205,3 +205,13 @@ models/
 batch_test_results_*.json
 batch_load_test_results_*.json
 performance_comparison_*.json
+
+# Test result files - don't commit
+cloud_run_throughput_results_*.json
+concurrent_60_test_results_*.json
+sequential_test_results_*.json
+*test_results_*.json
+
+# Test scripts (optional)
+test_*.py
+local_quick_test.py

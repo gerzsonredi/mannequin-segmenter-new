@@ -231,6 +231,7 @@ def create_app(testing=False):
                 return jsonify({"error": "image_url not provided"}), 400
 
             image_url = data['image_url']
+            upload_s3 = data.get('upload_s3', True)  # Default to True for backward compatibility
 
             # Check if model pool loaded successfully
             if model_pool is None:
@@ -259,32 +260,42 @@ def create_app(testing=False):
                 api_logger.log(f"Error: Failed to process image from URL: {image_url}")
                 return jsonify({"error": "Failed to process image"}), 500
 
-            print("Step 5: About to convert and upload to S3")
-            api_logger.log("Step 5: About to convert and upload to S3")
-            vis_pil = Image.fromarray(vis.astype(np.uint8))
-            buff = io.BytesIO()
-            vis_pil.save(buff, format="JPEG")
-            buff.seek(0)
+            if upload_s3:
+                print("Step 5: About to convert and upload to S3")
+                api_logger.log("Step 5: About to convert and upload to S3")
+                vis_pil = Image.fromarray(vis.astype(np.uint8))
+                buff = io.BytesIO()
+                vis_pil.save(buff, format="JPEG")
+                buff.seek(0)
 
-            filename = f"{uuid.uuid4()}.jpg"
-            today = datetime.utcnow()
-            date_prefix = today.strftime("%Y/%m/%d")
-            s3_key = f"{date_prefix}/{filename}"
+                filename = f"{uuid.uuid4()}.jpg"
+                today = datetime.utcnow()
+                date_prefix = today.strftime("%Y/%m/%d")
+                s3_key = f"{date_prefix}/{filename}"
 
-            s3_client.upload_fileobj(
-                buff,
-                aws_s3_bucket_name,
-                s3_key,
-                ExtraArgs={'ContentType': 'image/jpeg'}
-            )
+                s3_client.upload_fileobj(
+                    buff,
+                    aws_s3_bucket_name,
+                    s3_key,
+                    ExtraArgs={'ContentType': 'image/jpeg'}
+                )
 
-            s3_url = f"https://{aws_s3_bucket_name}.s3.{aws_s3_region}.amazonaws.com/{s3_key}"
-            print(f"Step 6: Successfully processed image and uploaded result to S3: {s3_url}")
-            api_logger.log(f"Step 6: Successfully processed image and uploaded result to S3: {s3_url}")
-            
-            return jsonify({
-                "visualization_url": s3_url,
-            })
+                s3_url = f"https://{aws_s3_bucket_name}.s3.{aws_s3_region}.amazonaws.com/{s3_key}"
+                print(f"Step 6: Successfully processed image and uploaded result to S3: {s3_url}")
+                api_logger.log(f"Step 6: Successfully processed image and uploaded result to S3: {s3_url}")
+                
+                return jsonify({
+                    "visualization_url": s3_url,
+                })
+            else:
+                print("Step 5: Skipping S3 upload (upload_s3=false)")
+                api_logger.log("Step 5: Skipping S3 upload (upload_s3=false)")
+                
+                return jsonify({
+                    "success": True,
+                    "message": "Image processed successfully (no S3 upload)",
+                    "inference_completed": True
+                })
 
         except Exception as e:
             error_msg = f"Error processing image from URL {image_url}: {str(e)}"

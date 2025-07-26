@@ -261,9 +261,11 @@ class BiRefNetSegmenter:
                             weights_only=False
                         )
                     except Exception as weights_error:
-                        self.logger.log(f"⚠️ Standard loading failed, trying weights_only=True: {weights_error}")
-                        print(f"⚠️ Standard loading failed, trying weights_only=True: {weights_error}")
-                        # Fallback: try with weights_only=True to avoid numpy version conflicts
+                        self.logger.log(f"⚠️ Standard loading failed, trying with safe globals: {weights_error}")
+                        print(f"⚠️ Standard loading failed, trying with safe globals: {weights_error}")
+                        # Fallback: add numpy._core.multiarray.scalar to safe globals
+                        import numpy as np
+                        torch.serialization.add_safe_globals([np.core.multiarray.scalar])
                         checkpoint = torch.load(
                             model_path, 
                             map_location=self.device, 

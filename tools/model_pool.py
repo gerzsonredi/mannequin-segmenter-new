@@ -164,6 +164,9 @@ class BiRefNetModelPool:
         Returns:
             Processing result
         """
+        # 🚀 OPTIMIZATION: Ensure plot=False for performance and threading safety
+        kwargs.setdefault('plot', False)  # Disable plots for performance and threading safety
+        
         with self.get_model() as model:
             return model.process_image_url(image_url, **kwargs)
     
@@ -181,15 +184,18 @@ class BiRefNetModelPool:
         if not image_urls:
             return []
         
+        # Filter out pool-level parameters that individual models don't support
+        model_kwargs = {k: v for k, v in kwargs.items() if k not in ['max_batch_size']}
+        
         # ✅ ALWAYS USE PARALLEL PROCESSING - NO MORE SEQUENTIAL FALLBACK!
         # Even for 1-2 images, use ThreadPoolExecutor for consistency
         results = [None] * len(image_urls)
         max_workers = min(len(image_urls), self.pool_size)  # Use ALL available models
         
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            # Submit all tasks
+            # Submit all tasks with filtered kwargs
             future_to_index = {
-                executor.submit(self.process_single_request, url, **kwargs): i 
+                executor.submit(self.process_single_request, url, **model_kwargs): i 
                 for i, url in enumerate(image_urls)
             }
             
@@ -343,7 +349,7 @@ def get_global_model_pool() -> BiRefNetModelPool:
         with _pool_lock:
             if _global_model_pool is None:  # Double-check pattern
                 _global_model_pool = BiRefNetModelPool(
-                    pool_size=60,  # 🚀 INCREASED: 30 → 60 models for maximum parallelism
+                    pool_size=60,  # 🚀 PRODUCTION: 60 models for maximum parallelism
                     model_path="models/birefnet_lite_mannequin_segmenter/checkpoint_20250726.pt", # NEW BIREFNET_LITE MODEL FROM S3
                     model_name="zhengpeng7/BiRefNet_lite", # Use BiRefNet_lite
                     precision="fp16",
