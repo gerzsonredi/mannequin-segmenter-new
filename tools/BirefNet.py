@@ -22,6 +22,7 @@ from io import BytesIO
 import boto3
 import tempfile
 import traceback
+import copy  # 🚀 For model cloning in cache
 
 # Import utilities from tools package
 try:
@@ -40,6 +41,43 @@ os.environ["TRANSFORMERS_TRUST_REMOTE_CODE"] = "true"
 # ✅ SHARED IMAGE CACHE to eliminate duplicate downloads across model instances
 _image_cache = {}
 _cache_lock = threading.Lock()
+
+# 🚀 SHARED MODEL CACHE to avoid re-downloading BiRefNet_lite for each instance
+_model_cache = {}  # Global cache for loaded models
+_model_cache_lock = threading.Lock()  # Thread-safe access to model cache
+
+def _get_cached_model(model_name: str, device: torch.device):
+    """
+    Get cached model or download and cache if not available.
+    Returns a fresh clone of the cached model.
+    """
+    cache_key = f"{model_name}_{device.type}"
+    
+    with _model_cache_lock:
+        if cache_key not in _model_cache:
+            print(f"🔽 First-time download: {model_name} for {device.type}")
+            # Download and cache the model
+            os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
+            
+            base_model = AutoModelForImageSegmentation.from_pretrained(
+                model_name,
+                trust_remote_code=True,
+                config={'model_type': 'custom_segmentation_model'}
+            )
+            
+            # Store in cache (on CPU to save GPU memory)
+            _model_cache[cache_key] = base_model.cpu()
+            print(f"✅ Model cached: {cache_key}")
+        else:
+            print(f"🎯 Using cached model: {cache_key}")
+    
+    # Return a fresh clone from cache (without re-downloading)
+    cached_model = _model_cache[cache_key]
+    
+    # Use copy.deepcopy to create a true independent clone
+    cloned_model = copy.deepcopy(cached_model)
+    
+    return cloned_model.to(device)
 
 def _get_cached_image(image_url: str):
     """Get image from shared cache or download if not cached."""
@@ -162,20 +200,13 @@ class BiRefNetSegmenter:
             self.logger.log("Using CPU (no GPU acceleration available)")
             print("Using CPU (no GPU acceleration available)")
         
-        # ✅ Load BiRefNet_lite model
+        # 🚀 Load BiRefNet_lite model using shared cache
         try:
             self.logger.log(f"Loading BiRefNet_lite model: {model_name}")
             print(f"Loading BiRefNet_lite model: {model_name}")
 
-            os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
-
-            # 1. Load BiRefNet_lite base model
-            self.model = AutoModelForImageSegmentation.from_pretrained(
-                model_name,
-                trust_remote_code=True,
-                config={'model_type': 'custom_segmentation_model'}
-            )
-            self.model.to(self.device)
+            # Use cached model to avoid re-downloading for each instance
+            self.model = _get_cached_model(model_name, self.device)
             self.model.eval()
             
             # Apply half precision if using CUDA and fp16
