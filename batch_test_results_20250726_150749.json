@@ -1,0 +1,425 @@
+{
+  "timestamp": "2025-07-26T15:07:49.490236",
+  "test_results": {
+    "config": {
+      "batch_size": 1,
+      "concurrent_batches": 20,
+      "total_images": 20,
+      "image_set": "mixed",
+      "upload_s3": true
+    },
+    "summary": {
+      "total_duration": 10.159220933914185,
+      "successful_batches": 16,
+      "failed_batches": 4,
+      "total_successful_images": 16,
+      "total_failed_images": 4,
+      "overall_throughput": 1.57492391435132,
+      "avg_batch_throughput": 0.1731206690713035
+    },
+    "batch_stats": {
+      "avg_duration": 6.534100323915482,
+      "median_duration": 7.263652086257935,
+      "min_duration": 2.5615720748901367,
+      "max_duration": 9.429295778274536
+    },
+    "batches": [
+      {
+        "batch_id": 1,
+        "success": true,
+        "duration": 6.106072902679443,
+        "successful_count": 1,
+        "failed_count": 0,
+        "batch_size": 1,
+        "throughput": 0.16377138234972333,
+        "response": {
+          "batch_size": 1,
+          "failed_count": 0,
+          "input_urls": [
+            "https://images.unsplash.com/photo-1567401893414-76b7b1e5a7a5?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80"
+          ],
+          "successful_count": 1,
+          "visualization_urls": [
+            "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_1a4f88de-7e04-4688-a132-e6801e202935_0.jpg"
+          ]
+        }
+      },
+      {
+        "batch_id": 2,
+        "success": false,
+        "duration": 3.11329984664917,
+        "error": "HTTP 500: {\"error\":\"Failed to process any images in batch\"}\n",
+        "batch_size": 1
+      },
+      {
+        "batch_id": 3,
+        "success": false,
+        "duration": 3.1176767349243164,
+        "error": "HTTP 500: {\"error\":\"Failed to process any images in batch\"}\n",
+        "batch_size": 1
+      },
+      {
+        "batch_id": 4,
+        "success": true,
+        "duration": 2.5615720748901367,
+        "successful_count": 1,
+        "failed_count": 0,
+        "batch_size": 1,
+        "throughput": 0.39038526762628334,
+        "response": {
+          "batch_size": 1,
+          "failed_count": 0,
+          "input_urls": [
+            "https://images.unsplash.com/photo-1558769132-cb1aea458c5e?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80"
+          ],
+          "successful_count": 1,
+          "visualization_urls": [
+            "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_c23e3781-7a03-481c-9e98-b5caaadc5676_0.jpg"
+          ]
+        }
+      },
+      {
+        "batch_id": 5,
+        "success": true,
+        "duration": 6.105077028274536,
+        "successful_count": 1,
+        "failed_count": 0,
+        "batch_size": 1,
+        "throughput": 0.16379809711960797,
+        "response": {
+          "batch_size": 1,
+          "failed_count": 0,
+          "input_urls": [
+            "https://images.unsplash.com/photo-1574015974293-817f0ebebb74?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80"
+          ],
+          "successful_count": 1,
+          "visualization_urls": [
+            "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_86ac91b9-489c-40b8-ada9-eb210c5e9f12_0.jpg"
+          ]
+        }
+      },
+      {
+        "batch_id": 6,
+        "success": true,
+        "duration": 4.492876768112183,
+        "successful_count": 1,
+        "failed_count": 0,
+        "batch_size": 1,
+        "throughput": 0.22257454446501101,
+        "response": {
+          "batch_size": 1,
+          "failed_count": 0,
+          "input_urls": [
+            "https://images.unsplash.com/photo-1581803118522-7b72a50f7e9f?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80"
+          ],
+          "successful_count": 1,
+          "visualization_urls": [
+            "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_9257f7c8-a615-43bf-8510-1475c2babbfb_0.jpg"
+          ]
+        }
+      },
+      {
+        "batch_id": 7,
+        "success": true,
+        "duration": 7.982019901275635,
+        "successful_count": 1,
+        "failed_count": 0,
+        "batch_size": 1,
+        "throughput": 0.12528157187884065,
+        "response": {
+          "batch_size": 1,
+          "failed_count": 0,
+          "input_urls": [
+            "https://images.unsplash.com/photo-1596495578065-6e0763fa1178?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
+          ],
+          "successful_count": 1,
+          "visualization_urls": [
+            "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_abf998c0-0fdb-44ac-9b86-78a6499cd8ae_0.jpg"
+          ]
+        }
+      },
+      {
+        "batch_id": 8,
+        "success": true,
+        "duration": 9.429295778274536,
+        "successful_count": 1,
+        "failed_count": 0,
+        "batch_size": 1,
+        "throughput": 0.1060524585838148,
+        "response": {
+          "batch_size": 1,
+          "failed_count": 0,
+          "input_urls": [
+            "https://images.unsplash.com/photo-1502823403499-6ccfcf4fb453?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
+          ],
+          "successful_count": 1,
+          "visualization_urls": [
+            "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_2f11f570-4523-495c-bf80-ecddd0edc8ea_0.jpg"
+          ]
+        }
+      },
+      {
+        "batch_id": 9,
+        "success": true,
+        "duration": 7.308463096618652,
+        "successful_count": 1,
+        "failed_count": 0,
+        "batch_size": 1,
+        "throughput": 0.13682767317559036,
+        "response": {
+          "batch_size": 1,
+          "failed_count": 0,
+          "input_urls": [
+            "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80"
+          ],
+          "successful_count": 1,
+          "visualization_urls": [
+            "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_4630708d-8785-4a0a-b7d4-47a2e6894cd0_0.jpg"
+          ]
+        }
+      },
+      {
+        "batch_id": 10,
+        "success": true,
+        "duration": 7.218841075897217,
+        "successful_count": 1,
+        "failed_count": 0,
+        "batch_size": 1,
+        "throughput": 0.13852639079960793,
+        "response": {
+          "batch_size": 1,
+          "failed_count": 0,
+          "input_urls": [
+            "https://images.unsplash.com/photo-1520006403909-838d6b92c22e?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80"
+          ],
+          "successful_count": 1,
+          "visualization_urls": [
+            "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_76538981-b7d6-4010-8726-2747875d776c_0.jpg"
+          ]
+        }
+      },
+      {
+        "batch_id": 11,
+        "success": true,
+        "duration": 5.129083156585693,
+        "successful_count": 1,
+        "failed_count": 0,
+        "batch_size": 1,
+        "throughput": 0.19496661868622847,
+        "response": {
+          "batch_size": 1,
+          "failed_count": 0,
+          "input_urls": [
+            "https://images.unsplash.com/photo-1567401893414-76b7b1e5a7a5?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80"
+          ],
+          "successful_count": 1,
+          "visualization_urls": [
+            "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_861b78d4-5dd6-4806-8794-51da8ccc36b2_0.jpg"
+          ]
+        }
+      },
+      {
+        "batch_id": 12,
+        "success": false,
+        "duration": 3.5960378646850586,
+        "error": "HTTP 500: {\"error\":\"Failed to process any images in batch\"}\n",
+        "batch_size": 1
+      },
+      {
+        "batch_id": 13,
+        "success": false,
+        "duration": 4.4506449699401855,
+        "error": "HTTP 500: {\"error\":\"Failed to process any images in batch\"}\n",
+        "batch_size": 1
+      },
+      {
+        "batch_id": 14,
+        "success": true,
+        "duration": 8.23407506942749,
+        "successful_count": 1,
+        "failed_count": 0,
+        "batch_size": 1,
+        "throughput": 0.12144654883132239,
+        "response": {
+          "batch_size": 1,
+          "failed_count": 0,
+          "input_urls": [
+            "https://images.unsplash.com/photo-1558769132-cb1aea458c5e?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80"
+          ],
+          "successful_count": 1,
+          "visualization_urls": [
+            "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_1b0b7f02-32b3-4ace-b4fa-14b6cd66daf9_0.jpg"
+          ]
+        }
+      },
+      {
+        "batch_id": 15,
+        "success": true,
+        "duration": 7.912808895111084,
+        "successful_count": 1,
+        "failed_count": 0,
+        "batch_size": 1,
+        "throughput": 0.12637737284642983,
+        "response": {
+          "batch_size": 1,
+          "failed_count": 0,
+          "input_urls": [
+            "https://images.unsplash.com/photo-1574015974293-817f0ebebb74?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80"
+          ],
+          "successful_count": 1,
+          "visualization_urls": [
+            "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_bc957bbd-ea60-4900-952b-39c997de0253_0.jpg"
+          ]
+        }
+      },
+      {
+        "batch_id": 16,
+        "success": true,
+        "duration": 3.3057122230529785,
+        "successful_count": 1,
+        "failed_count": 0,
+        "batch_size": 1,
+        "throughput": 0.3025066710363716,
+        "response": {
+          "batch_size": 1,
+          "failed_count": 0,
+          "input_urls": [
+            "https://images.unsplash.com/photo-1581803118522-7b72a50f7e9f?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80"
+          ],
+          "successful_count": 1,
+          "visualization_urls": [
+            "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_d153a7a0-c998-4399-9c30-24d140405648_0.jpg"
+          ]
+        }
+      },
+      {
+        "batch_id": 17,
+        "success": true,
+        "duration": 7.794656991958618,
+        "successful_count": 1,
+        "failed_count": 0,
+        "batch_size": 1,
+        "throughput": 0.1282930090485897,
+        "response": {
+          "batch_size": 1,
+          "failed_count": 0,
+          "input_urls": [
+            "https://images.unsplash.com/photo-1596495578065-6e0763fa1178?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
+          ],
+          "successful_count": 1,
+          "visualization_urls": [
+            "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_b8f2a03b-a46e-4064-b7c6-6eb4cffbc456_0.jpg"
+          ]
+        }
+      },
+      {
+        "batch_id": 18,
+        "success": true,
+        "duration": 8.12935185432434,
+        "successful_count": 1,
+        "failed_count": 0,
+        "batch_size": 1,
+        "throughput": 0.12301103678616868,
+        "response": {
+          "batch_size": 1,
+          "failed_count": 0,
+          "input_urls": [
+            "https://images.unsplash.com/photo-1502823403499-6ccfcf4fb453?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
+          ],
+          "successful_count": 1,
+          "visualization_urls": [
+            "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_54e9fdf0-40da-416a-b66b-b43452311eb5_0.jpg"
+          ]
+        }
+      },
+      {
+        "batch_id": 19,
+        "success": true,
+        "duration": 7.770258188247681,
+        "successful_count": 1,
+        "failed_count": 0,
+        "batch_size": 1,
+        "throughput": 0.1286958522835798,
+        "response": {
+          "batch_size": 1,
+          "failed_count": 0,
+          "input_urls": [
+            "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80"
+          ],
+          "successful_count": 1,
+          "visualization_urls": [
+            "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_ea68b387-bc7a-477a-bb25-f05e32264ced_0.jpg"
+          ]
+        }
+      },
+      {
+        "batch_id": 20,
+        "success": true,
+        "duration": 5.0654401779174805,
+        "successful_count": 1,
+        "failed_count": 0,
+        "batch_size": 1,
+        "throughput": 0.19741620962368628,
+        "response": {
+          "batch_size": 1,
+          "failed_count": 0,
+          "input_urls": [
+            "https://images.unsplash.com/photo-1520006403909-838d6b92c22e?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80"
+          ],
+          "successful_count": 1,
+          "visualization_urls": [
+            "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_fa09e9e8-6688-4454-b37e-b2e865089f1f_0.jpg"
+          ]
+        }
+      }
+    ],
+    "monitoring": [
+      {
+        "timestamp": 1753535259.348932,
+        "datetime": "2025-07-26T15:07:39.348932",
+        "active_requests": 0,
+        "available_models": 30,
+        "gpu_memory": {
+          "allocated_gb": 12.72663688659668,
+          "max_allocated_gb": 13.300373554229736,
+          "reserved_gb": 12.86328125
+        },
+        "initialized": true,
+        "max_active_requests": 1,
+        "pool_size": 30,
+        "total_requests": 1
+      },
+      {
+        "timestamp": 1753535264.424623,
+        "datetime": "2025-07-26T15:07:44.424623",
+        "active_requests": 5,
+        "available_models": 25,
+        "gpu_memory": {
+          "allocated_gb": 14.83437728881836,
+          "max_allocated_gb": 14.997025489807129,
+          "reserved_gb": 15.193359375
+        },
+        "initialized": true,
+        "max_active_requests": 6,
+        "pool_size": 30,
+        "total_requests": 7
+      }
+    ],
+    "final_pool_stats": {
+      "pool_statistics": {
+        "active_requests": 0,
+        "available_models": 30,
+        "gpu_memory": {
+          "allocated_gb": 12.75837516784668,
+          "max_allocated_gb": 13.332539081573486,
+          "reserved_gb": 12.908203125
+        },
+        "initialized": true,
+        "max_active_requests": 5,
+        "pool_size": 30,
+        "total_requests": 9
+      },
+      "timestamp": "2025-07-26T13:07:49.504066"
+    }
+  }
+}

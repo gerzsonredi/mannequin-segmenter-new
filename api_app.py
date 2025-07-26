@@ -19,7 +19,9 @@ os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
 
 import torch
 # from tools.MaskRCNN_segmenter import MaskRCNNSegmenter
-from tools.BirefNet import BiRefNetSegmenter
+from tools.BirefNet import BiRefNetSegmenter, _get_cached_image  # ✅ Import shared cache function
+import cv2 # Added for cv2.cvtColor
+import time # Added for time.time()
 
 # PyTorch Global Configuration for Inference
 torch.backends.cudnn.benchmark = True  # Good for fixed input size
@@ -456,6 +458,95 @@ def create_app(testing=False):
             
             return jsonify({"error": str(e), "batch_size": len(image_urls)}), 500
             
+    @app.route('/batch_infer_optimized', methods=['POST'])
+    @limit_concurrent_requests
+    @torch.inference_mode()
+    def batch_infer_optimized():
+        """OPTIMIZED batch inference for 6-second target using TRUE BATCH PROCESSING."""
+        model_pool = current_app.config['MODEL_POOL']
+        try:
+            api_logger.log("🚀 OPTIMIZED batch inference request")
+            print("🚀 OPTIMIZED batch inference request")
+            data = request.get_json()
+            
+            if not data or 'image_urls' not in data:
+                return jsonify({"error": "image_urls list not provided"}), 400
+
+            image_urls = data['image_urls']
+            if not isinstance(image_urls, list) or len(image_urls) == 0:
+                return jsonify({"error": "image_urls must be a non-empty list"}), 400
+                
+            batch_size = len(image_urls)
+            if batch_size > 50:
+                return jsonify({"error": "Maximum batch size is 50 images"}), 400
+
+            start_time = time.time()
+            api_logger.log(f"🚀 OPTIMIZED BATCH: Processing {batch_size} images with TRUE BATCH INFERENCE")
+            print(f"🚀 OPTIMIZED BATCH: Processing {batch_size} images with TRUE BATCH INFERENCE")
+            
+            # Get one model for true batch processing
+            with model_pool.get_model() as model:
+                # Use shared image cache for fast downloads
+                api_logger.log("📥 Downloading images with shared cache...")
+                print("📥 Downloading images with shared cache...")
+                
+                download_start = time.time()
+                image_arrays = []
+                
+                # Download images using shared cache (already optimized)
+                for i, url in enumerate(image_urls):
+                    img = _get_cached_image(url)  # This function is defined in BirefNet.py
+                    if img is not None:
+                        # Convert RGB to BGR for BiRefNet
+                        img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+                        image_arrays.append(img_bgr)
+                    else:
+                        api_logger.log(f"⚠️ Failed to download image {i+1}: {url}")
+                        print(f"⚠️ Failed to download image {i+1}: {url}")
+                
+                download_time = time.time() - download_start
+                
+                if not image_arrays:
+                    return jsonify({"error": "No images could be downloaded"}), 400
+                
+                api_logger.log(f"📥 Downloaded {len(image_arrays)}/{batch_size} images in {download_time:.2f}s")
+                print(f"📥 Downloaded {len(image_arrays)}/{batch_size} images in {download_time:.2f}s")
+                
+                # TRUE BATCH PROCESSING - single GPU forward pass
+                batch_start = time.time()
+                processed_images = model.process_image_arrays_batch(image_arrays, plot=False)
+                batch_time = time.time() - batch_start
+                
+                # Filter successful results
+                valid_images = [img for img in processed_images if img is not None]
+                
+                api_logger.log(f"🚀 BATCH PROCESSING: {len(valid_images)}/{len(image_arrays)} successful in {batch_time:.2f}s")
+                print(f"🚀 BATCH PROCESSING: {len(valid_images)}/{len(image_arrays)} successful in {batch_time:.2f}s")
+                
+                total_time = time.time() - start_time
+                throughput = len(valid_images) / total_time if total_time > 0 else 0
+                
+                api_logger.log(f"✅ OPTIMIZED BATCH COMPLETE: {total_time:.2f}s total, {throughput:.1f} images/sec")
+                print(f"✅ OPTIMIZED BATCH COMPLETE: {total_time:.2f}s total, {throughput:.1f} images/sec")
+                
+                return jsonify({
+                    "batch_size": batch_size,
+                    "successful_count": len(valid_images),
+                    "failed_count": batch_size - len(valid_images),
+                    "processing_time_seconds": total_time,
+                    "download_time_seconds": download_time,
+                    "inference_time_seconds": batch_time,
+                    "throughput_images_per_second": throughput,
+                    "optimization": "true_batch_processing",
+                    "message": f"Processed {len(valid_images)} images in {total_time:.2f}s"
+                })
+
+        except Exception as e:
+            error_msg = f"Optimized batch processing failed: {str(e)}"
+            api_logger.log(error_msg)
+            print(error_msg)
+            return jsonify({"error": error_msg}), 500
+
     # Attach objects to app context for easier testing and access
     app.config['S3_CLIENT'] = s3_client
     app.config['MODEL_POOL'] = model_pool

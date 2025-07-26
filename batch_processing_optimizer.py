@@ -71,8 +71,20 @@ class BatchTestConfig:
         self.monitor_pool_stats = True
         self.monitor_gpu_memory = True
         self.stats_interval = 5  # seconds
+        self.use_optimized_endpoint = False # ✅ NEW: Optimized endpoint flag
     
     def __str__(self):
+        optimization_info = ""
+        if self.use_optimized_endpoint:
+            optimization_info = f"""
+🚀 OPTIMIZATION MODE: TRUE BATCH PROCESSING
+   - Using /batch_infer_optimized endpoint
+   - Single large batch instead of multiple small batches  
+   - Target: Process {self.total_images} images in ≤6 seconds
+   - CUDA streams + memory layout optimization
+   - torch.compile enabled for maximum performance
+"""
+        
         return f"""
 🏊‍♂️ BATCH PROCESSING TEST CONFIGURATION
 ================================================================================
@@ -95,7 +107,7 @@ class BatchTestConfig:
 📊 Monitoring:
    - Pool Statistics: {'Yes' if self.monitor_pool_stats else 'No'}
    - GPU Memory: {'Yes' if self.monitor_gpu_memory else 'No'}
-   - Stats Interval: {self.stats_interval} seconds
+   - Stats Interval: {self.stats_interval} seconds{optimization_info}
 ================================================================================
 """
 
@@ -303,34 +315,47 @@ async def run_batch_test(config: BatchTestConfig) -> Dict[str, Any]:
         results = []
         
         try:
-            # Process batches with controlled concurrency
-            semaphore = asyncio.Semaphore(config.concurrent_batches)
-            
-            async def process_batch_with_semaphore(batch_images, batch_id):
-                async with semaphore:
-                    return await process_single_batch(session, batch_images, batch_id, config)
-            
-            # Create all batch tasks
-            batch_tasks = [
-                process_batch_with_semaphore(batch_images, i+1)
-                for i, batch_images in enumerate(batches)
-            ]
-            
-            # Execute batches
-            if config.test_duration_minutes:
-                # Time-limited test
-                try:
-                    timeout_seconds = config.test_duration_minutes * 60
-                    results = await asyncio.wait_for(
-                        asyncio.gather(*batch_tasks, return_exceptions=True),
-                        timeout=timeout_seconds
-                    )
-                except asyncio.TimeoutError:
-                    print(f"⏰ Test timed out after {config.test_duration_minutes} minutes")
-                    results = [{"error": "timeout"} for _ in batch_tasks]
+            # ✅ OPTIMIZED ENDPOINT: Use single large batch for TRUE BATCH PROCESSING
+            if config.use_optimized_endpoint:
+                print(f"🚀 Using OPTIMIZED ENDPOINT with single large batch of {len(all_images)} images")
+                print("   This tests TRUE BATCH PROCESSING for 6-second target!")
+                
+                # Test optimized endpoint with all images in one batch
+                optimized_result = await test_optimized_batch_endpoint(session, all_images, config)
+                results = [optimized_result]
+                
             else:
-                # Process all batches
-                results = await asyncio.gather(*batch_tasks, return_exceptions=True)
+                # Standard multi-batch testing
+                print(f"🏊‍♂️ Using STANDARD ENDPOINT with {len(batches)} batches")
+                
+                # Process batches with controlled concurrency
+                semaphore = asyncio.Semaphore(config.concurrent_batches)
+                
+                async def process_batch_with_semaphore(batch_images, batch_id):
+                    async with semaphore:
+                        return await process_single_batch(session, batch_images, batch_id, config)
+                
+                # Create all batch tasks
+                batch_tasks = [
+                    process_batch_with_semaphore(batch_images, i+1)
+                    for i, batch_images in enumerate(batches)
+                ]
+                
+                # Execute batches
+                if config.test_duration_minutes:
+                    # Time-limited test
+                    try:
+                        timeout_seconds = config.test_duration_minutes * 60
+                        results = await asyncio.wait_for(
+                            asyncio.gather(*batch_tasks, return_exceptions=True),
+                            timeout=timeout_seconds
+                        )
+                    except asyncio.TimeoutError:
+                        print(f"⏰ Test timed out after {config.test_duration_minutes} minutes")
+                        results = [{"error": "timeout"} for _ in batch_tasks]
+                else:
+                    # Process all batches
+                    results = await asyncio.gather(*batch_tasks, return_exceptions=True)
         
         finally:
             # Stop monitoring
@@ -398,7 +423,8 @@ async def run_batch_test(config: BatchTestConfig) -> Dict[str, Any]:
                 "concurrent_batches": config.concurrent_batches,
                 "total_images": config.total_images,
                 "image_set": config.image_set,
-                "upload_s3": config.upload_s3
+                "upload_s3": config.upload_s3,
+                "use_optimized_endpoint": config.use_optimized_endpoint
             },
             "summary": {
                 "total_duration": total_test_duration,
@@ -435,6 +461,71 @@ async def run_batch_test(config: BatchTestConfig) -> Dict[str, Any]:
         
         return test_results
 
+async def test_optimized_batch_endpoint(session: aiohttp.ClientSession, image_urls: List[str], config: BatchTestConfig) -> Dict[str, Any]:
+    """Test the new optimized batch endpoint for 6-second target."""
+    print(f"🚀 Testing OPTIMIZED BATCH ENDPOINT with {len(image_urls)} images")
+    
+    start_time = time.time()
+    
+    try:
+        payload = {"image_urls": image_urls}
+        timeout = aiohttp.ClientTimeout(total=config.timeout_per_batch)
+        
+        async with session.post(f"{BASE_URL}/batch_infer_optimized", json=payload, timeout=timeout) as response:
+            end_time = time.time()
+            duration = end_time - start_time
+            
+            if response.status == 200:
+                result = await response.json()
+                
+                success_count = result.get("successful_count", 0)
+                total_time = result.get("processing_time_seconds", duration)
+                download_time = result.get("download_time_seconds", 0)
+                inference_time = result.get("inference_time_seconds", 0)
+                throughput = result.get("throughput_images_per_second", 0)
+                
+                print(f"✅ OPTIMIZED BATCH SUCCESS:")
+                print(f"   📊 Images: {success_count}/{len(image_urls)} successful")
+                print(f"   ⏱️  Total time: {total_time:.2f}s")
+                print(f"   📥 Download time: {download_time:.2f}s ({download_time/total_time*100:.1f}%)")
+                print(f"   🚀 Inference time: {inference_time:.2f}s ({inference_time/total_time*100:.1f}%)")
+                print(f"   📈 Throughput: {throughput:.1f} images/sec")
+                print(f"   🎯 Target achieved: {'✅ YES' if total_time <= 6.0 else '❌ NO'} (6s target)")
+                
+                return {
+                    "status": "success",
+                    "duration": total_time,
+                    "download_time": download_time,
+                    "inference_time": inference_time,
+                    "throughput": throughput,
+                    "success_count": success_count,
+                    "target_achieved": total_time <= 6.0,
+                    "optimization": "true_batch_processing",
+                    "response": result
+                }
+            else:
+                error_text = await response.text()
+                print(f"❌ OPTIMIZED BATCH FAILED: HTTP {response.status}")
+                print(f"   Error: {error_text}")
+                
+                return {
+                    "status": "error",
+                    "duration": duration,
+                    "http_status": response.status,
+                    "error": error_text
+                }
+                
+    except Exception as e:
+        end_time = time.time()
+        duration = end_time - start_time
+        
+        print(f"❌ OPTIMIZED BATCH EXCEPTION: {e}")
+        return {
+            "status": "exception", 
+            "duration": duration,
+            "error": str(e)
+        }
+
 def create_config_from_args() -> BatchTestConfig:
     """Create configuration from command line arguments."""
     parser = argparse.ArgumentParser(description="Batch Processing Optimizer Test")
@@ -464,6 +555,8 @@ def create_config_from_args() -> BatchTestConfig:
                        help="Don't save results to file")
     parser.add_argument("--no-monitoring", action="store_true",
                        help="Disable pool stats monitoring")
+    parser.add_argument("--optimized", action="store_true",
+                       help="Use optimized batch endpoint for 6-second target")
     
     args = parser.parse_args()
     
@@ -479,6 +572,7 @@ def create_config_from_args() -> BatchTestConfig:
     config.detailed_logging = not args.quiet
     config.save_results = not args.no_save
     config.monitor_pool_stats = not args.no_monitoring
+    config.use_optimized_endpoint = getattr(args, 'optimized', False)  # ✅ NEW: Optimized endpoint flag
     
     return config
 

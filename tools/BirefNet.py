@@ -102,6 +102,14 @@ class BiRefNetSegmenter:
         # Initialize logger
         self.logger = AppLogger()
         
+        # ✅ CUDA STREAMS for performance optimization
+        self.cuda_streams = None
+        if torch.cuda.is_available():
+            # Create multiple CUDA streams for overlapping operations
+            self.cuda_streams = [torch.cuda.Stream() for _ in range(2)]
+            self.main_stream = self.cuda_streams[0] 
+            self.copy_stream = self.cuda_streams[1]
+        
         # Enhanced Device setup with detailed detection
         self.logger.log("Initializing BiRefNet Segmenter")
         print("Initializing BiRefNet Segmenter")
@@ -143,49 +151,36 @@ class BiRefNetSegmenter:
             self.logger.log("Using CPU (no GPU acceleration available)")
             print("Using CPU (no GPU acceleration available)")
         
-        # Initialize BiRefNet model
+        # Load model
+        self.logger.log(f"Loading BiRefNet model: {model_name}")
+        print(f"Loading BiRefNet model: {model_name}")
+        
         try:
-            self.logger.log(f"Loading BiRefNet model: {model_name}")
-            print(f"Loading BiRefNet model: {model_name}")
-
-            os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
-
             self.model = AutoModelForImageSegmentation.from_pretrained(
-                model_name,
-                trust_remote_code=True,
-                config={'model_type': 'custom_segmentation_model'}
+                model_name, trust_remote_code=True
             )
             self.model.to(self.device)
             
-            # Apply performance optimizations
+            # Memory layout optimization
             if torch.cuda.is_available():
-                # Use channels_last memory format for better GPU utilization
                 self.model = self.model.to(memory_format=torch.channels_last)
-                
-                # DISABLED: torch.compile conflicts with BiRefNet's tensor mutations
-                # The model mutates input tensors which causes "skipping cudagraphs due to mutated inputs"
-                # try:
-                #     self.model = torch.compile(self.model, mode="reduce-overhead")
-                #     self.logger.log("Model compiled successfully with torch.compile")
-                #     print("Model compiled successfully with torch.compile")
-                # except Exception as compile_error:
-                #     self.logger.log(f"Model compilation failed: {compile_error}")
-                #     print(f"Model compilation failed: {compile_error}")
-                self.logger.log("torch.compile disabled - conflicts with BiRefNet tensor mutations")
-                print("torch.compile disabled - conflicts with BiRefNet tensor mutations")
+                # ✅ RE-ENABLE torch.compile for batch processing optimization
+                try:
+                    # Compile model for batch inference performance
+                    self.model = torch.compile(self.model, mode="max-autotune")
+                    self.logger.log("✅ Model compiled with torch.compile for batch optimization")
+                    print("✅ Model compiled with torch.compile for batch optimization")
+                except Exception as compile_error:
+                    self.logger.log(f"⚠️ torch.compile failed, continuing without: {compile_error}")
+                    print(f"⚠️ torch.compile failed, continuing without: {compile_error}")
             
             self.model.eval()
-            # Ensure no gradients are computed for inference
             self.model.requires_grad_(False)
             
-            # Apply half precision if using CUDA and fp16 (matching notebook)
-            if self.device.type == 'cuda' and self.precision == 'fp16':
-                self.model.half()
-                
         except Exception as e:
             self.logger.log(f"Error loading BiRefNet model: {e}")
             print(f"Error loading BiRefNet model: {e}")
-            raise e
+            raise
         
         # Load custom checkpoint if provided
         if model_path and os.path.exists(model_path):
@@ -262,35 +257,41 @@ class BiRefNetSegmenter:
 
     def _preprocess_batch_images(self, images: List[np.ndarray]) -> torch.Tensor:
         """
-        Preprocess multiple images for batch BiRefNet inference.
-        
-        Args:
-            images: List of input images in BGR format
-            
-        Returns:
-            Batch tensor with shape [batch_size, 3, 512, 512]
+        OPTIMIZED batch preprocessing for maximum performance.
+        Uses memory layout optimization and CUDA streams.
         """
         try:
-            preprocessed_images = []
+            # ✅ Pre-allocate batch tensor for better memory efficiency
+            batch_size = len(images)
+            batch_tensor = torch.empty((batch_size, 3, 512, 512), dtype=self.dtype, device=self.device, memory_format=torch.channels_last)
             
-            for i, img in enumerate(images):
-                # Convert BGR to RGB
-                img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                
-                # Convert to PIL Image and resize to 512x512
-                pil_img = Image.fromarray(img_rgb).convert("RGB").resize((512, 512))
-                
-                # Convert to tensor (no unsqueeze - we'll stack later)
-                img_tensor = F.to_tensor(pil_img).to(self.device)
-                
-                # Apply half precision if needed
-                if self.precision == 'fp16' and self.device.type == 'cuda':
-                    img_tensor = img_tensor.half()
-                
-                preprocessed_images.append(img_tensor)
-            
-            # Stack all images into a batch tensor
-            batch_tensor = torch.stack(preprocessed_images, dim=0)
+            # ✅ Use CUDA streams for overlapping operations
+            if self.cuda_streams:
+                with torch.cuda.stream(self.copy_stream):
+                    # Process images in parallel with tensor operations
+                    for i, img in enumerate(images):
+                        # Convert BGR to RGB and resize efficiently
+                        img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                        
+                        # Use OpenCV for faster resize (compared to PIL)
+                        img_resized = cv2.resize(img_rgb, (512, 512), interpolation=cv2.INTER_LINEAR)
+                        
+                        # Convert to tensor efficiently
+                        img_tensor = torch.from_numpy(img_resized).to(dtype=self.dtype, device=self.device, memory_format=torch.channels_last)
+                        img_tensor = img_tensor.permute(2, 0, 1) / 255.0  # [H, W, C] -> [C, H, W] and normalize
+                        
+                        batch_tensor[i] = img_tensor
+                        
+                # Synchronize streams
+                torch.cuda.current_stream().wait_stream(self.copy_stream)
+            else:
+                # CPU fallback
+                for i, img in enumerate(images):
+                    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                    img_resized = cv2.resize(img_rgb, (512, 512), interpolation=cv2.INTER_LINEAR)
+                    img_tensor = torch.from_numpy(img_resized).to(dtype=self.dtype, device=self.device)
+                    img_tensor = img_tensor.permute(2, 0, 1) / 255.0
+                    batch_tensor[i] = img_tensor
             
             # ✅ MINIMAL LOGGING for parallel performance
             # self.logger.log(f"Batch preprocessing output shape: {batch_tensor.shape}, dtype: {batch_tensor.dtype}")
@@ -437,7 +438,7 @@ class BiRefNetSegmenter:
 
     def _run_batch_inference(self, batch_tensor: torch.Tensor) -> torch.Tensor:
         """
-        Run BiRefNet inference on batch of preprocessed images.
+        OPTIMIZED BiRefNet batch inference with CUDA streams for maximum performance.
         
         Args:
             batch_tensor: Batch tensor with shape [batch_size, 3, 512, 512]
@@ -447,28 +448,31 @@ class BiRefNetSegmenter:
         """
         with torch.no_grad(), torch.inference_mode():
             try:
-                # Use autocast for fp16 performance optimization
-                autocast_dtype = torch.float16 if torch.cuda.is_available() and self.precision == 'fp16' else None
+                # ✅ Use main CUDA stream for inference
+                if self.cuda_streams:
+                    with torch.cuda.stream(self.main_stream):
+                        # Ensure tensor is in optimal memory format
+                        if not batch_tensor.is_contiguous(memory_format=torch.channels_last):
+                            batch_tensor = batch_tensor.to(memory_format=torch.channels_last)
+                        
+                        # Use autocast for fp16 performance optimization
+                        autocast_dtype = torch.float16 if torch.cuda.is_available() and self.precision == 'fp16' else None
+                        
+                        with torch.autocast(device_type='cuda', dtype=autocast_dtype, enabled=autocast_dtype is not None):
+                            # TRUE BATCH INFERENCE - process all images in one forward pass
+                            outputs = self.model(batch_tensor)
+                        
+                        # Move to copy stream for post-processing
+                        torch.cuda.current_stream().wait_stream(self.main_stream)
+                else:
+                    # Use autocast for fp16 performance optimization
+                    autocast_dtype = torch.float16 if torch.cuda.is_available() and self.precision == 'fp16' else None
+                    
+                    with torch.autocast(device_type='cuda', dtype=autocast_dtype, enabled=autocast_dtype is not None):
+                        # TRUE BATCH INFERENCE - process all images in one forward pass
+                        outputs = self.model(batch_tensor)
                 
-                with torch.autocast(device_type='cuda', dtype=autocast_dtype, enabled=autocast_dtype is not None):
-                    # TRUE BATCH INFERENCE - process all images in one forward pass
-                    outputs = self.model(batch_tensor)
-                
-                # Debug: Log model output info
-                self.logger.log(f"🔍 Model output type: {type(outputs)}")
-                print(f"🔍 Model output type: {type(outputs)}")
-                if hasattr(outputs, 'shape'):
-                    self.logger.log(f"🔍 Model output shape: {outputs.shape}")
-                    print(f"🔍 Model output shape: {outputs.shape}")
-                elif isinstance(outputs, (list, tuple)):
-                    self.logger.log(f"🔍 Model output list length: {len(outputs)}")
-                    print(f"🔍 Model output list length: {len(outputs)}")
-                    for i, item in enumerate(outputs[:3]):  # Show first 3 items
-                        if hasattr(item, 'shape'):
-                            self.logger.log(f"🔍 Item {i} shape: {item.shape}")
-                            print(f"🔍 Item {i} shape: {item.shape}")
-                
-                # Use the extraction function from the notebook
+                # Extract outputs efficiently
                 extracted_logits = self._extract_birefnet_output(outputs)
                 
                 if extracted_logits is None:
@@ -478,10 +482,11 @@ class BiRefNetSegmenter:
                     batch_size = batch_tensor.shape[0]
                     return torch.zeros((batch_size, 512, 512), dtype=torch.float32)  # CPU tensor
                 
-                self.logger.log(f"🔍 Extracted logits shape: {extracted_logits.shape}")
-                print(f"🔍 Extracted logits shape: {extracted_logits.shape}")
+                # ✅ MINIMAL LOGGING for parallel performance
+                # self.logger.log(f"🔍 Extracted logits shape: {extracted_logits.shape}")
+                # print(f"🔍 Extracted logits shape: {extracted_logits.shape}")
                 
-                # Apply sigmoid to get probabilities
+                # Apply sigmoid and process efficiently
                 batch_masks = torch.sigmoid(extracted_logits)
                 
                 # Ensure correct shape: [batch_size, 512, 512]
@@ -496,19 +501,18 @@ class BiRefNetSegmenter:
                     # Single image case: [H, W] -> [1, H, W]
                     batch_masks = batch_masks.unsqueeze(0)
                 else:
-                    self.logger.log(f"❌ Unexpected batch mask shape: {batch_masks.shape}")
-                    print(f"❌ Unexpected batch mask shape: {batch_masks.shape}")
                     # Try to reshape to expected format
                     if batch_masks.numel() == batch_tensor.shape[0] * 512 * 512:
                         batch_masks = batch_masks.view(batch_tensor.shape[0], 512, 512)
                     else:
                         raise ValueError(f"Cannot reshape {batch_masks.shape} to batch format")
                 
-                # CRITICAL: Move to CPU immediately to free GPU memory
+                # ✅ CRITICAL: Move to CPU immediately to free GPU memory
                 batch_masks_cpu = batch_masks.detach().cpu()
                 
-                self.logger.log(f"✅ Batch inference output: {original_shape} -> {batch_masks_cpu.shape}, dtype: {batch_masks_cpu.dtype}")
-                print(f"✅ Batch inference output: {original_shape} -> {batch_masks_cpu.shape}, dtype: {batch_masks_cpu.dtype}")
+                # ✅ MINIMAL LOGGING for parallel performance
+                # self.logger.log(f"✅ Batch inference output: {original_shape} -> {batch_masks_cpu.shape}, dtype: {batch_masks_cpu.dtype}")
+                # print(f"✅ Batch inference output: {original_shape} -> {batch_masks_cpu.shape}, dtype: {batch_masks_cpu.dtype}")
                 
                 # Explicit GPU memory cleanup - only delete if variables exist
                 try:
@@ -522,7 +526,7 @@ class BiRefNetSegmenter:
                 self.logger.log(f"Error during BiRefNet batch inference: {e}")
                 print(f"Error during BiRefNet batch inference: {e}")
                 
-                # GPU memory cleanup even on error
+                # GPU memory cleanup even on error (NO SYNCHRONIZE for parallel execution!)
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
                     # torch.cuda.synchronize()
