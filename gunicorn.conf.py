@@ -1,19 +1,18 @@
-# Gunicorn configuration file
-import multiprocessing
-import os
+# Gunicorn configuration for Cloud Run mannequin segmentation API
+# Each Cloud Run instance handles exactly 1 concurrent request for maximum memory efficiency
+# Optimized for BiRefNet_lite horizontal scaling with CPU-only processing
 
-# Server socket
+# Application
 bind = "0.0.0.0:5001"
-backlog = 2048
+timeout = 900
+keepalive = 65
 
-# Worker processes - OPTIMIZED FOR HORIZONTAL SCALING (60 INSTANCES)
-# Strategy: 1 worker + 1 thread per instance, 60 instances = 60 concurrent capacity
+# Worker processes - OPTIMIZED FOR HORIZONTAL SCALING (20 INSTANCES)
+# Strategy: 1 worker + 1 thread per instance, 20 instances = 20 concurrent capacity
 workers = 1  # Single worker per instance
 worker_class = "sync"  # Sync worker for Flask  
 threads = 1  # Single thread per instance (concurrency=1 on Cloud Run)
 worker_connections = 5  # Lower since only 1 concurrent request per instance
-timeout = 600  # 10 minutes for model inference
-keepalive = 5
 
 # Restart workers after more requests to allow model pool to be utilized longer
 max_requests = 100  # Increased from 20 to prevent frequent model pool reinitialization

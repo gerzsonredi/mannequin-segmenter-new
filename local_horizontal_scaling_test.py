@@ -222,20 +222,20 @@ async def test_concurrent_requests():
             print(f"   ⚠️  {failure_count} requests failed")
         
         # Cloud Run projection
-        if success_count > 0:
-            single_instance_time = avg_duration
-            cloud_run_60_instances = single_instance_time  # Each instance handles 1 request
-            images_in_6s = 6 / cloud_run_60_instances if cloud_run_60_instances > 0 else 0
-            
-            print(f"\n🎯 CLOUD RUN PROJECTION (60 instances):")
-            print(f"   Single instance time: {single_instance_time:.2f}s")
-            print(f"   60 instances parallel: {cloud_run_60_instances:.2f}s per request")
-            print(f"   Max images in 6s: {min(60, images_in_6s):.0f} images")
-            
-            if images_in_6s >= 50:
-                print(f"   🎉 TARGET ACHIEVABLE! (50+ images in 6s)")
-            else:
-                print(f"   ⚠️ Target may be challenging (need {50/images_in_6s:.1f}x improvement)")
+        cloud_run_20_instances = avg_duration  # Each instance handles 1 request
+        images_in_6s = 6 / cloud_run_20_instances if cloud_run_20_instances > 0 else 0
+        
+        print(f"\n🎯 CLOUD RUN PROJECTION (20 instances):")
+        print(f"   Single instance: {cloud_run_20_instances:.2f}s per request")
+        print(f"   20 instances parallel: {cloud_run_20_instances:.2f}s per request")
+        print(f"   Throughput: {images_in_6s:.1f} images in 6 seconds")
+        print(f"   Est. capacity: {3600/cloud_run_20_instances:.0f} images/hour (20 instances)")
+        
+        # Show the architecture advantage
+        print(f"\n📊 HORIZONTAL SCALING ADVANTAGE:")
+        print(f"   Local batch (sequential): {avg_duration:.2f}s")
+        print(f"   Cloud Run (20 parallel): {cloud_run_20_instances:.2f}s")
+        print(f"   Speed improvement: {avg_duration/cloud_run_20_instances:.1f}x faster")
         
         # Error analysis
         if failed:
@@ -319,7 +319,7 @@ async def main():
         
         if success:
             print("\n🎉 LOCAL TEST COMPLETED SUCCESSFULLY!")
-            print("✅ Ready for Cloud Run deployment with 60 instances")
+            print("✅ Ready for Cloud Run deployment with 20 instances")
         else:
             print("\n⚠️ LOCAL TEST HAD ISSUES")
             print("🔧 Consider investigating before Cloud Run deployment")

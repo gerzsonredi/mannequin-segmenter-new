@@ -253,7 +253,7 @@ class BiRefNetSegmenter:
                     self.logger.log("❌ Failed to download checkpoint from S3, using pretrained weights")
                     print("❌ Failed to download checkpoint from S3, using pretrained weights")
                     model_path = None  # Fall back to pretrained
-            
+
             # ✅ 3. Load custom trained weights
             if model_path and os.path.exists(model_path):
                 try:
@@ -270,14 +270,44 @@ class BiRefNetSegmenter:
                     except Exception as weights_error:
                         self.logger.log(f"⚠️ Standard loading failed, trying with safe globals: {weights_error}")
                         print(f"⚠️ Standard loading failed, trying with safe globals: {weights_error}")
-                        # Fallback: add numpy._core.multiarray.scalar to safe globals
-                        import numpy as np
-                        torch.serialization.add_safe_globals([np.core.multiarray.scalar])
-                        checkpoint = torch.load(
-                            model_path, 
-                            map_location=self.device, 
-                            weights_only=True
-                        )
+                        
+                        # Try with weights_only=True and proper safe globals
+                        try:
+                            # Add safe globals for numpy compatibility
+                            import numpy as np
+                            safe_globals = [
+                                np.core.multiarray.scalar,
+                                np.core.multiarray._reconstruct,
+                                np.ndarray,
+                                np.dtype,
+                                np.core.multiarray.scalar
+                            ]
+                            
+                            # Try with safe globals context manager
+                            with torch.serialization.safe_globals(safe_globals):
+                                checkpoint = torch.load(
+                                    model_path, 
+                                    map_location=self.device, 
+                                    weights_only=True
+                                )
+                                
+                        except Exception as safe_error:
+                            self.logger.log(f"⚠️ Safe loading also failed: {safe_error}")
+                            print(f"⚠️ Safe loading also failed: {safe_error}")
+                            
+                            # Final fallback: try weights_only=False explicitly
+                            try:
+                                checkpoint = torch.load(
+                                    model_path, 
+                                    map_location=self.device, 
+                                    weights_only=False
+                                )
+                                self.logger.log("✅ Fallback loading with weights_only=False succeeded")
+                                print("✅ Fallback loading with weights_only=False succeeded")
+                            except Exception as final_error:
+                                self.logger.log(f"❌ All loading methods failed: {final_error}")
+                                print(f"❌ All loading methods failed: {final_error}")
+                                raise final_error
                     
                     # Load model state dict (following the user's example)
                     if 'model_state_dict' in checkpoint:
@@ -290,7 +320,7 @@ class BiRefNetSegmenter:
                     
                     self.logger.log("✅ Custom trained weights loaded successfully")
                     print("✅ Custom trained weights loaded successfully")
-                        
+                    
                 except Exception as e:
                     self.logger.log(f"❌ Error loading custom checkpoint: {e}")
                     print(f"❌ Error loading custom checkpoint: {e}")
@@ -311,6 +341,44 @@ class BiRefNetSegmenter:
         
         self.logger.log("BiRefNet_lite Segmenter initialized successfully")
         print("BiRefNet_lite Segmenter initialized successfully")
+
+    def get_model_info(self):
+        """
+        Get information about the loaded model.
+        
+        Returns:
+            Dictionary containing model information
+        """
+        try:
+            # Count parameters
+            total_params = sum(p.numel() for p in self.model.parameters())
+            trainable_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+            
+            return {
+                "model_name": self.model_name,
+                "device": str(self.device),
+                "precision": self.precision,
+                "parameters": total_params,
+                "trainable_parameters": trainable_params,
+                "architecture": "BiRefNet_lite for mannequin segmentation",
+                "image_size": 512,  # Fixed input size for BiRefNet
+                "thickness_threshold": self.thickness_threshold,
+                "mask_threshold": self.mask_threshold
+            }
+        except Exception as e:
+            self.logger.log(f"Error getting model info: {e}")
+            return {
+                "model_name": self.model_name,
+                "device": str(self.device),
+                "precision": self.precision,
+                "parameters": "unknown",
+                "trainable_parameters": "unknown",
+                "architecture": "BiRefNet_lite for mannequin segmentation",
+                "image_size": 512,
+                "thickness_threshold": self.thickness_threshold,
+                "mask_threshold": self.mask_threshold,
+                "error": str(e)
+            }
 
     def _preprocess_image(self, img: np.ndarray) -> torch.Tensor:
         """
@@ -376,11 +444,11 @@ class BiRefNetSegmenter:
                 
                 # Convert to tensor (no unsqueeze - we'll stack later)
                 img_tensor = F.to_tensor(pil_img).to(self.device)
-                
-                # Apply half precision if needed
-                if self.precision == 'fp16' and self.device.type == 'cuda':
-                    img_tensor = img_tensor.half()
-                
+            
+            # Apply half precision if needed
+            if self.precision == 'fp16' and self.device.type == 'cuda':
+                img_tensor = img_tensor.half()
+            
                 preprocessed_images.append(img_tensor)
             
             # Stack all images into a batch tensor
@@ -526,7 +594,7 @@ class BiRefNetSegmenter:
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
                     # torch.cuda.synchronize()
-                
+                    
                 raise
 
     def _run_batch_inference(self, batch_tensor: torch.Tensor) -> torch.Tensor:
@@ -870,7 +938,7 @@ class BiRefNetSegmenter:
             plt.show()
 
         # Cleanup - no files to remove since we use shared cache
-        
+            
         # GPU memory cleanup after processing (NO SYNCHRONIZE for parallel execution!)
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
@@ -1072,31 +1140,31 @@ class BiRefNetSegmenter:
                 print(f"Batch processing failed, falling back to sequential: {batch_error}")
                 
                 # Fallback to sequential processing
-                for i, image in enumerate(downloaded_images):
-                    try:
-                        self.logger.log(f"Processing image {i+1}/{len(downloaded_images)} (sequential fallback)")
-                        print(f"Processing image {i+1}/{len(downloaded_images)} (sequential fallback)")
-                        
-                        # Convert PIL image to numpy array (BGR format for BiRefNet)
-                        image_np = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
-                        
-                        # Use the proven single image processing method
-                        result_img = self.process_image_array(image_np, plot=False)
-                        
-                        if result_img is not None:
-                            processed_images.append(result_img)
-                            self.logger.log(f"Successfully processed image {i+1}/{len(downloaded_images)} (fallback)")
-                            print(f"Successfully processed image {i+1}/{len(downloaded_images)} (fallback)")
-                        else:
-                            self.logger.log(f"Failed to process image {i+1}: process_image_array returned None")
-                            print(f"Failed to process image {i+1}: process_image_array returned None")
-                            failed_count += 1
-                        
-                    except Exception as e:
-                        self.logger.log(f"Failed to process image {i+1} (fallback): {str(e)}")
-                        print(f"Failed to process image {i+1} (fallback): {str(e)}")
+            for i, image in enumerate(downloaded_images):
+                try:
+                    self.logger.log(f"Processing image {i+1}/{len(downloaded_images)} (sequential fallback)")
+                    print(f"Processing image {i+1}/{len(downloaded_images)} (sequential fallback)")
+                    
+                    # Convert PIL image to numpy array (BGR format for BiRefNet)
+                    image_np = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+                    
+                    # Use the proven single image processing method
+                    result_img = self.process_image_array(image_np, plot=False)
+                    
+                    if result_img is not None:
+                        processed_images.append(result_img)
+                        self.logger.log(f"Successfully processed image {i+1}/{len(downloaded_images)} (fallback)")
+                        print(f"Successfully processed image {i+1}/{len(downloaded_images)} (fallback)")
+                    else:
+                        self.logger.log(f"Failed to process image {i+1}: process_image_array returned None")
+                        print(f"Failed to process image {i+1}: process_image_array returned None")
                         failed_count += 1
-                        continue
+                    
+                except Exception as e:
+                    self.logger.log(f"Failed to process image {i+1} (fallback): {str(e)}")
+                    print(f"Failed to process image {i+1} (fallback): {str(e)}")
+                    failed_count += 1
+                    continue
             
             success_count = len(processed_images)
             total_requested = len(image_urls)

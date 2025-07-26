@@ -49,16 +49,15 @@ torch.set_grad_enabled(False)  # Global inference mode
 # Initialize device and AMP dtype
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# Single Model initialization - FAST DEEPLABV3-MOBILEVIT ARCHITECTURE  
-print("🚀 Loading Fast DeepLabV3-MobileViT Model globally (CPU optimized)...")
+# Single Model initialization - BIREFNET_LITE ARCHITECTURE (BACK TO WORKING MODEL)
+print("🚀 Loading BiRefNet_lite Model globally (CPU optimized)...")
 try:
-    from tools.DeepLabV3_MobileViT import DeepLabV3MobileViTSegmenter
+    from tools.BirefNet import BiRefNetSegmenter
     
-    # Initialize single fast model per instance (concurrency=1)
-    single_model = DeepLabV3MobileViTSegmenter(
-        model_path="models/mannequin_segmenter_deeplabv3_mobilevit/checkpoint_20250726.pt",
-        model_name="apple/deeplabv3-mobilevit-xx-small", 
-        image_size=512,
+    # Initialize single BiRefNet model per instance (concurrency=1)
+    single_model = BiRefNetSegmenter(
+        model_path="models/birefnet_lite_mannequin_segmenter/checkpoint_20250726.pt",
+        model_name="zhengpeng7/BiRefNet_lite", 
         precision="fp32",  # CPU uses fp32
         vis_save_dir="infer"
     )
@@ -69,9 +68,9 @@ try:
     else:
         AMP_DTYPE = torch.float32
         
-    print(f"✅ Fast DeepLabV3-MobileViT model loaded on {single_model.device}")
+    print(f"✅ BiRefNet_lite model loaded on {single_model.device}")
     print(f"✅ Using AMP dtype: {AMP_DTYPE}")
-    print("🏗️ Architecture: 60 instances × 1 fast model = 60 parallel capacity")
+    print("🏗️ Architecture: 20 instances × 1 BiRefNet model = 20 parallel capacity")
     print(f"📊 Model size: {single_model.get_model_info()['parameters']:,} parameters")
     
 except Exception as e:
@@ -143,7 +142,7 @@ def create_app(testing=False):
             model_stats = {
                 "model_loaded": True,
                 "device": model_info["device"],
-                "architecture": f"CPU Horizontal Scaling (60 instances) - {model_info['architecture']}",
+                "architecture": f"CPU Horizontal Scaling (20 instances) - {model_info['architecture']}",
                 "model_name": model_info["model_name"],
                 "parameters": model_info["parameters"]
             }
@@ -177,7 +176,7 @@ def create_app(testing=False):
                 "precision": model_info["precision"],
                 "image_size": model_info["image_size"],
                 "parameters": model_info["parameters"],
-                "instances": "60 instances × 1 concurrent = 60 parallel capacity",
+                "instances": "20 instances × 1 concurrent = 20 parallel capacity",
                 "memory_per_instance": "4Gi",
                 "cpu_per_instance": "2",
                 "model_architecture": model_info["architecture"]
@@ -313,7 +312,13 @@ def create_app(testing=False):
             if upload_s3:
                 print("Step 5: About to convert and upload to S3")
                 api_logger.log("Step 5: About to convert and upload to S3")
-                vis_pil = Image.fromarray(vis.astype(np.uint8))
+                # Handle both PIL Image and numpy array
+                if isinstance(vis, Image.Image):
+                    vis_pil = vis
+                    print("   ✅ Using PIL Image directly")
+                else:
+                    vis_pil = Image.fromarray(vis.astype(np.uint8))
+                    print("   🔄 Converting numpy array to PIL")
                 buff = io.BytesIO()
                 vis_pil.save(buff, format="JPEG")
                 buff.seek(0)
@@ -517,8 +522,8 @@ def create_app(testing=False):
         """Optimized batch processing not needed in horizontal scaling mode."""
         return jsonify({
             "info": "Optimized batch processing not needed in horizontal scaling mode",
-            "recommendation": "Send individual requests to /infer - load balancer will distribute across 60 instances",
-            "architecture": "60 instances × 1 concurrent = 60 parallel capacity",
+            "recommendation": "Send individual requests to /infer - load balancer will distribute across 20 instances",
+            "architecture": "20 instances × 1 concurrent = 20 parallel capacity",
             "alternative": "Use /batch_infer for sequential processing on single instance"
         }), 200
         try:
@@ -677,8 +682,8 @@ def create_app(testing=False):
         """Lightweight batch processing not needed in horizontal scaling mode."""
         return jsonify({
             "info": "Lightweight batch processing not needed in horizontal scaling mode",
-            "recommendation": "Send individual requests to /infer - load balancer will distribute across 60 instances",
-            "architecture": "60 instances × 1 concurrent = 60 parallel capacity",
+            "recommendation": "Send individual requests to /infer - load balancer will distribute across 20 instances",
+            "architecture": "20 instances × 1 concurrent = 20 parallel capacity",
             "alternative": "Use /batch_infer for sequential processing on single instance"
         }), 200
         try:

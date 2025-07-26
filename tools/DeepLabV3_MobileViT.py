@@ -2,6 +2,7 @@
 """
 DeepLabV3-MobileViT Mannequin Segmenter
 Fast and lightweight model for mannequin segmentation
+BACKGROUND WHITE OUT: Only mannequin area is preserved, background is white.
 """
 
 import os
@@ -20,194 +21,156 @@ try:
     from .logger import AppLogger
     from .env_utils import get_env_variable
 except ImportError:
-    # Fallback for local testing
     from logger import AppLogger
     from env_utils import get_env_variable
 
-# ⚡ SPEED: Global cache for image downloads (DISABLED in production)
 ENABLE_IMAGE_CACHE = os.getenv('ENVIRONMENT', 'development').lower() != 'production'
 _image_download_cache = {} if ENABLE_IMAGE_CACHE else None
 _cache_lock = threading.Lock() if ENABLE_IMAGE_CACHE else None
 
+def apply_white_background(original_image: Image.Image, pred_mask: np.ndarray) -> Image.Image:
+    """
+    Keep only the mannequin (pred_mask==1), turn all background pixels to white.
+    """
+    print(f"   📐 Original: {original_image.size}, Mask: {pred_mask.shape}")
+    print(f"   📊 Mask values: {pred_mask.min()}-{pred_mask.max()}, Mannequin pixels: {np.sum(pred_mask > 0):,}")
+    
+    img_np = np.array(original_image)
+    if len(img_np.shape) == 2:  # grayscale
+        img_np = np.stack([img_np]*3, axis=-1)
+    mask = (pred_mask > 0).astype(np.uint8)
+    if mask.shape != img_np.shape[:2]:
+        print(f"   🔄 Resizing mask: {mask.shape} → {img_np.shape[:2]}")
+        mask = np.array(Image.fromarray(mask).resize((img_np.shape[1], img_np.shape[0]), Image.NEAREST))
+    
+    mannequin_pixels = np.sum(mask)
+    total_pixels = mask.shape[0] * mask.shape[1]
+    coverage = mannequin_pixels / total_pixels * 100
+    print(f"   🎯 Final coverage: {coverage:.1f}% ({mannequin_pixels:,}/{total_pixels:,} pixels)")
+    
+    mask_3ch = np.stack([mask]*3, axis=-1)
+    white_bg = np.ones_like(img_np, dtype=np.uint8) * 255
+    out = img_np * mask_3ch + white_bg * (1 - mask_3ch)
+    
+    print(f"   🤍 White background applied successfully!")
+    return Image.fromarray(out)
+
 class DeepLabV3MobileViTSegmenter:
     """
-    Fast DeepLabV3-MobileViT based mannequin segmenter
-    Much faster than BiRefNet, optimized for CPU inference with caching
+    DeepLabV3-MobileViT mannequin segmenter with WHITE BACKGROUND postprocessing.
     """
-    
     def __init__(self, 
                  model_path: str = "models/mannequin_segmenter_deeplabv3_mobilevit/checkpoint_20250726.pt",
                  model_name: str = "apple/deeplabv3-mobilevit-xx-small",
                  image_size: int = 512,
                  precision: str = "fp32",
                  vis_save_dir: str = "infer"):
-        
         self.model_path = model_path
         self.model_name = model_name
         self.image_size = image_size
         self.precision = precision
         self.vis_save_dir = vis_save_dir
-        
-        # Initialize logger
         self.logger = AppLogger()
-        
-        # Device setup
-        self.logger.log("Initializing DeepLabV3-MobileViT Segmenter")
         print("Initializing DeepLabV3-MobileViT Segmenter")
-        
-        # Check if CPU is forced via environment variable
         force_cpu = os.getenv('FORCE_CPU', 'false').lower() == 'true'
-        
         if force_cpu:
             self.device = torch.device("cpu")
-            self.logger.log("🔧 FORCE_CPU enabled - Using CPU for DeepLabV3-MobileViT")
             print("🔧 FORCE_CPU enabled - Using CPU for DeepLabV3-MobileViT")
         elif torch.cuda.is_available():
             self.device = torch.device("cuda")
-            self.logger.log(f"🚀 Using GPU: {torch.cuda.get_device_name()}")
             print(f"🚀 Using GPU: {torch.cuda.get_device_name()}")
         else:
             self.device = torch.device("cpu")
-            self.logger.log("💻 Using CPU (no GPU available)")
             print("💻 Using CPU (no GPU available)")
-        
-        # Optimize CPU threading for maximum single-request performance
         if self.device.type == 'cpu':
             cpu_count = os.cpu_count() or 4
-            # Use all available CPU cores for maximum single request speed
-            max_threads = cpu_count  # Use all available cores
+            max_threads = cpu_count
             torch.set_num_threads(max_threads)
-            
-            # Set environment variables for multi-threading libraries
             os.environ['OMP_NUM_THREADS'] = str(max_threads)
             os.environ['MKL_NUM_THREADS'] = str(max_threads) 
             os.environ['NUMEXPR_MAX_THREADS'] = str(max_threads)
             os.environ['BLAS_NUM_THREADS'] = str(max_threads)
-            
-            self.logger.log(f"🧵 CPU multi-threading optimized: {torch.get_num_threads()} threads across {cpu_count} cores")
             print(f"🧵 CPU multi-threading optimized: {torch.get_num_threads()} threads across {cpu_count} cores")
-        
-        # Load model and processor
+        import random, time
+        delay = random.uniform(0.5, 3.0)
+        print(f"⏳ Anti-rate-limit delay: {delay:.1f}s")
+        time.sleep(delay)
         try:
-            self.logger.log(f"Loading DeepLabV3-MobileViT model: {model_name}")
-            print(f"Loading DeepLabV3-MobileViT model: {model_name}")
-            
-            # Load processor
+            self.processor = AutoImageProcessor.from_pretrained(model_name, local_files_only=True)
+            print("✅ AutoImageProcessor loaded (offline)")
+        except:
+            print("⚠️ Offline processor failed, trying online...")
+            time.sleep(random.uniform(1, 3))
             self.processor = AutoImageProcessor.from_pretrained(model_name)
-            print("✅ AutoImageProcessor loaded")
-            
-            # Load base model
+            print("✅ AutoImageProcessor loaded (online)")
+        try:
+            self.model = AutoModelForSemanticSegmentation.from_pretrained(model_name, local_files_only=True)
+            print("✅ Base model loaded (offline)")
+        except:
+            print("⚠️ Offline model failed, trying online...")
+            time.sleep(random.uniform(1, 3))
             self.model = AutoModelForSemanticSegmentation.from_pretrained(model_name)
-            print("✅ Base model loaded")
-            
-            # Try to load custom checkpoint
-            checkpoint_loaded = False
-            if os.path.exists(model_path):
-                try:
-                    self.logger.log(f"Loading custom checkpoint from: {model_path}")
-                    print(f"Loading custom checkpoint from: {model_path}")
-                    
+            print("✅ Base model loaded (online)")
+        checkpoint_loaded = False
+        if os.path.exists(model_path):
+            try:
+                print(f"Loading custom checkpoint from: {model_path}")
+                checkpoint = torch.load(model_path, map_location=self.device, weights_only=False)
+                self.model.load_state_dict(checkpoint, strict=False)
+                checkpoint_loaded = True
+                print("✅ Custom checkpoint loaded successfully")
+            except Exception as e:
+                print(f"⚠️ Failed to load local checkpoint: {e}")
+        if not checkpoint_loaded:
+            try:
+                print("Attempting to download checkpoint from S3...")
+                s3_path = f"s3://artifactsredi/models/mannequin_segmenter_deeplabv3_mobilevit/checkpoint_20250726.pt"
+                if self._download_model_from_s3(s3_path, model_path):
                     checkpoint = torch.load(model_path, map_location=self.device, weights_only=False)
                     self.model.load_state_dict(checkpoint, strict=False)
                     checkpoint_loaded = True
-                    
-                    self.logger.log("✅ Custom checkpoint loaded successfully")
-                    print("✅ Custom checkpoint loaded successfully")
-                    
-                except Exception as e:
-                    self.logger.log(f"⚠️ Failed to load local checkpoint: {e}")
-                    print(f"⚠️ Failed to load local checkpoint: {e}")
-            
-            # Try to download from S3 if local file not found
-            if not checkpoint_loaded:
-                try:
-                    self.logger.log("Attempting to download checkpoint from S3...")
-                    print("Attempting to download checkpoint from S3...")
-                    
-                    s3_path = f"s3://artifactsredi/models/mannequin_segmenter_deeplabv3_mobilevit/checkpoint_20250726.pt"
-                    
-                    # Download from S3
-                    if self._download_model_from_s3(s3_path, model_path):
-                        checkpoint = torch.load(model_path, map_location=self.device, weights_only=False)
-                        self.model.load_state_dict(checkpoint, strict=False)
-                        checkpoint_loaded = True
-                        
-                        self.logger.log("✅ S3 checkpoint downloaded and loaded")
-                        print("✅ S3 checkpoint downloaded and loaded")
-                    
-                except Exception as s3_error:
-                    self.logger.log(f"⚠️ S3 download failed: {s3_error}")
-                    print(f"⚠️ S3 download failed: {s3_error}")
-            
-            if not checkpoint_loaded:
-                self.logger.log("ℹ️ Using base pretrained model (no custom checkpoint)")
-                print("ℹ️ Using base pretrained model (no custom checkpoint)")
-            
-            # Move model to device
-            self.model = self.model.to(self.device)
-            self.model.eval()
-            
-            # Optimize model for CPU performance
-            if self.device.type == 'cpu':
-                # Convert to channels_last memory format for better CPU performance
-                self.model = self.model.to(memory_format=torch.channels_last)
-                self.logger.log("✅ Model optimized for CPU with channels_last memory format")
-                print("✅ Model optimized for CPU with channels_last memory format")
-            
-            # Set precision
-            if self.precision == "fp16" and self.device.type == 'cuda':
-                self.model = self.model.half()
-                self.logger.log("✅ Model set to FP16 precision")
-                print("✅ Model set to FP16 precision")
-            
-            # Create output directory
-            os.makedirs(vis_save_dir, exist_ok=True)
-            
-            self.logger.log(f"✅ DeepLabV3-MobileViT initialized on {self.device}")
-            print(f"✅ DeepLabV3-MobileViT initialized on {self.device}")
-            
-        except Exception as e:
-            self.logger.log(f"❌ Failed to initialize DeepLabV3-MobileViT: {e}")
-            print(f"❌ Failed to initialize DeepLabV3-MobileViT: {e}")
-            raise e
-    
+                    print("✅ S3 checkpoint downloaded and loaded")
+            except Exception as s3_error:
+                print(f"⚠️ S3 download failed: {s3_error}")
+        if not checkpoint_loaded:
+            print("ℹ️ Using base pretrained model (no custom checkpoint)")
+        
+        self.model = self.model.to(self.device)
+        # USER'S WORKING VALIDATION CODE used eval() mode!
+        print("🔧 Using EVAL mode like in user's working validation...")
+        self.model.eval()  # Like in validation
+        print("✅ Model set to eval mode")
+        if self.device.type == 'cpu':
+            self.model = self.model.to(memory_format=torch.channels_last)
+            print("✅ Model optimized for CPU with channels_last memory format")
+        if self.precision == "fp16" and self.device.type == 'cuda':
+            self.model = self.model.half()
+            print("✅ Model set to FP16 precision")
+        os.makedirs(vis_save_dir, exist_ok=True)
+        print(f"✅ DeepLabV3-MobileViT initialized on {self.device}")
+
     def _download_model_from_s3(self, s3_path: str, local_path: str) -> bool:
-        """Download model from S3"""
         try:
-            # Parse S3 path
             s3_path = s3_path.replace("s3://", "")
             bucket_name = s3_path.split("/")[0]
             key = "/".join(s3_path.split("/")[1:])
-            
-            # Create S3 client
             s3_client = boto3.client(
                 's3',
                 aws_access_key_id=get_env_variable('AWS_ACCESS_KEY_ID'),
                 aws_secret_access_key=get_env_variable('AWS_SECRET_ACCESS_KEY'),
                 region_name=get_env_variable('AWS_S3_REGION') or 'eu-central-1'
             )
-            
-            # Create directory if it doesn't exist
             os.makedirs(os.path.dirname(local_path), exist_ok=True)
-            
-            # Download file
             s3_client.download_file(bucket_name, key, local_path)
-            
-            self.logger.log(f"✅ Model downloaded from S3: {s3_path}")
             print(f"✅ Model downloaded from S3: {s3_path}")
             return True
-            
         except Exception as e:
-            self.logger.log(f"❌ S3 download failed: {e}")
             print(f"❌ S3 download failed: {e}")
             return False
-    
-    def _preprocess_image(self, image_url: str) -> torch.Tensor:
-        """Download and preprocess image with SPEED optimizations + caching"""
+
+    def _preprocess_image(self, image_url: str):
         try:
-            # ⚡ SPEED: Check cache first (only in development)
             global _image_download_cache, _cache_lock, ENABLE_IMAGE_CACHE
-            
             if ENABLE_IMAGE_CACHE and _image_download_cache is not None and _cache_lock is not None:
                 with _cache_lock:
                     if image_url in _image_download_cache:
@@ -216,159 +179,214 @@ class DeepLabV3MobileViTSegmenter:
                         image = Image.open(io.BytesIO(cached_data)).convert('RGB')
                     else:
                         print("   🌐 Downloading image (caching enabled)...")
-                        # ⚡ SPEED: Fast image download
-                        import requests
                         session = requests.Session()
                         session.headers.update({
                             'Accept-Encoding': 'gzip, deflate',
                             'Connection': 'keep-alive',
                             'User-Agent': 'mannequin-segmenter/1.0'
                         })
-                        
-                        response = session.get(image_url, timeout=10, stream=True)  # Reduced timeout
+                        response = session.get(image_url, timeout=10, stream=True)
                         response.raise_for_status()
-                        
-                        # Cache the raw image data
                         image_data = response.content
                         _image_download_cache[image_url] = image_data
-                        
-                        # Limit cache size (keep only last 5 images)
                         if len(_image_download_cache) > 5:
                             oldest_key = next(iter(_image_download_cache))
                             del _image_download_cache[oldest_key]
-                        
                         image = Image.open(io.BytesIO(image_data)).convert('RGB')
             else:
-                # Production mode: Always download fresh (no cache)
                 print("   🌐 Downloading image (production - no cache)...")
-                import requests
                 session = requests.Session()
                 session.headers.update({
                     'Accept-Encoding': 'gzip, deflate',
                     'Connection': 'keep-alive',
                     'User-Agent': 'mannequin-segmenter/1.0'
                 })
-                
                 response = session.get(image_url, timeout=10, stream=True)
                 response.raise_for_status()
-                
                 image = Image.open(io.BytesIO(response.content)).convert('RGB')
-            
-            # ⚡ SPEED: Direct resize with PIL (faster than AutoImageProcessor for resize)
             image_resized = image.resize((self.image_size, self.image_size), Image.BILINEAR)
-            
-            # ⚡ SPEED: Fast numpy conversion
-            import numpy as np
             img_array = np.array(image_resized, dtype=np.float32) / 255.0
-            
-            # ⚡ SPEED: Direct tensor creation (faster than AutoImageProcessor)
-            pixel_values = torch.from_numpy(img_array).permute(2, 0, 1).unsqueeze(0)  # CHW format
-            
-            # Move to device and optimize
+            pixel_values = torch.from_numpy(img_array).permute(2, 0, 1).unsqueeze(0)
             pixel_values = pixel_values.to(self.device, non_blocking=True)
-            
-            # Enable channels_last for CPU performance
             if self.device.type == 'cpu':
                 pixel_values = pixel_values.to(memory_format=torch.channels_last)
-            
             if self.precision == "fp16" and self.device.type == 'cuda':
                 pixel_values = pixel_values.half()
-            
             return pixel_values, image
-            
         except Exception as e:
-            self.logger.log(f"❌ Preprocessing failed: {e}")
             print(f"❌ Preprocessing failed: {e}")
             return None, None
-    
-    def _run_inference(self, pixel_values: torch.Tensor) -> torch.Tensor:
-        """Run model inference with CPU multi-threading optimization"""
+
+    def _draw_full_mask_to_console(self, pred_mask: np.ndarray):
+        """Draw the FULL mask pixel-by-pixel to console for debugging"""
         try:
-            with torch.inference_mode():
-                # Enable CPU optimizations
-                torch.set_grad_enabled(False)
-                
-                # Forward pass with optimized threading
-                outputs = self.model(pixel_values=pixel_values)
-                logits = outputs.logits  # (1, num_classes, H, W)
-                
-                # Apply softmax to get probabilities - CPU optimized
-                probs = torch.softmax(logits, dim=1)
-                
-                # Get mannequin mask (assuming class 1 is mannequin)
-                # You may need to adjust the class index based on your training
-                mannequin_probs = probs[:, 1:2, :, :]  # Keep batch and channel dims
-                
-                return mannequin_probs
+            h, w = pred_mask.shape
+            print(f"   📐 Mask dimensions: {h}x{w}")
+            
+            # For large masks, downsample to fit console (50x50 max)
+            if h > 50 or w > 50:
+                step_h = max(1, h // 50)
+                step_w = max(1, w // 50)
+                display_mask = pred_mask[::step_h, ::step_w]
+                print(f"   📉 Downsampled to: {display_mask.shape[0]}x{display_mask.shape[1]} (step: {step_h}x{step_w})")
+            else:
+                display_mask = pred_mask
+            
+            # Character mapping for different classes
+            char_map = {
+                0: '  ',    # Background = spaces
+                1: '██',    # Class 1 = full blocks
+                2: '▓▓',    # Class 2 = dark shade
+                3: '▒▒',    # Class 3 = medium shade
+                4: '░░',    # Class 4 = light shade
+                5: '••',    # Class 5 = bullets
+                6: '++',    # Class 6 = plus
+                7: 'XX',    # Class 7 = X
+                8: '##',    # Class 8 = hash
+                9: '$$',    # Class 9 = dollar
+                10: '%%',   # Class 10 = percent
+                11: '&&',   # Class 11 = ampersand
+                12: '@@',   # Class 12 = at
+                13: '!!',   # Class 13 = exclamation
+                14: '??',   # Class 14 = question
+                15: '🟥',   # Class 15 (person) = red square
+                16: '77',   # Class 16 = 7
+                17: '88',   # Class 17 = 8
+                18: '99',   # Class 18 = 9
+                19: 'OO',   # Class 19 = O
+                20: 'UU'    # Class 20 = U
+            }
+            
+            # Draw border
+            border_width = display_mask.shape[1] * 2 + 4
+            print("   " + "─" * border_width)
+            
+            # Draw each row
+            for row_idx, row in enumerate(display_mask):
+                line = f"   │"
+                for col_idx, pixel in enumerate(row):
+                    char = char_map.get(pixel, f"{pixel%10}{pixel%10}")
+                    line += char
+                line += "│"
+                print(line)
+            
+            print("   " + "─" * border_width)
+            
+            # Legend for detected classes
+            detected_classes = np.unique(display_mask)
+            legend_items = []
+            for cls in detected_classes:
+                char = char_map.get(cls, f"{cls%10}{cls%10}")
+                legend_items.append(f"[{char}]=class{cls}")
+            
+            print(f"   📋 Legend: {', '.join(legend_items)}")
+            
+            # Statistics
+            for cls in detected_classes:
+                count = np.sum(display_mask == cls)
+                percentage = count / display_mask.size * 100
+                print(f"   📊 Class {cls}: {count} pixels ({percentage:.1f}%)")
                 
         except Exception as e:
-            self.logger.log(f"❌ Inference failed: {e}")
+            print(f"   ❌ Console mask visualization failed: {e}")
+
+    def _run_inference(self, pixel_values: torch.Tensor, target_size: tuple) -> torch.Tensor:
+        """EXACT copy of user's working validation code"""
+        try:
+            # USER'S WORKING CODE: model.eval() + torch.no_grad()
+            with torch.no_grad():
+                outputs = self.model(pixel_values=pixel_values)
+                logits = outputs.logits
+                print(f"   🔍 Model logits shape: {logits.shape}")
+                
+                # USER'S EXACT METHOD: F.interpolate + argmax
+                print(f"   🔧 USER's WORKING METHOD: Upsampling {logits.shape[2:]} → {target_size}")
+                logits_upsampled = F.interpolate(
+                    logits, size=target_size, mode="bilinear", align_corners=False
+                )
+                print(f"   ✅ Upsampled shape: {logits_upsampled.shape}")
+                
+                # USER'S EXACT ARGMAX: torch.argmax(logits_upsampled, dim=1).squeeze()
+                pred_mask = torch.argmax(logits_upsampled, dim=1).squeeze().cpu().numpy()
+                print(f"   📊 Final prediction shape: {pred_mask.shape}")
+                
+                # USER'S DEBUG: show unique values (like in validation)
+                unique_classes, counts = np.unique(pred_mask, return_counts=True)
+                print(f"   🎯 Pred mask unique: {list(zip(unique_classes, counts))}")
+                
+                # USER REQUESTED: Draw FULL mask pixel-by-pixel to console
+                print("   🖼️ FULL MASK VISUALIZATION (pixel-level):")
+                self._draw_full_mask_to_console(pred_mask)
+                
+                return pred_mask
+        except Exception as e:
             print(f"❌ Inference failed: {e}")
             return None
-    
-    def _postprocess_mask(self, mask_tensor: torch.Tensor, original_image: Image.Image) -> np.ndarray:
-        """Convert mask tensor to final visualization - CPU optimized"""
+
+    def process_image_url(self, image_url: str, plot: bool = False) -> Image.Image:
+        """
+        Processes an image from URL, returns a PIL.Image with mannequin preserved,
+        background set to white.
+        """
         try:
-            # Get mask on CPU and resize using PIL (faster than PyTorch on CPU)
-            mask = mask_tensor.squeeze().cpu().numpy()  # Remove batch and channel dims
-            
-            # Convert mask to PIL Image for fast resize
-            mask_pil = Image.fromarray((mask * 255).astype(np.uint8), mode='L')
-            mask_resized_pil = mask_pil.resize(original_image.size, Image.BILINEAR)
-            mask_resized = np.array(mask_resized_pil).astype(np.float32) / 255.0
-            
-            # Apply threshold
-            mask_binary = (mask_resized > 0.5).astype(np.uint8)
-            
-            # Convert original image to numpy
-            orig_array = np.array(original_image)
-            
-            # Create visualization (mannequin + transparent background) - vectorized operations
-            vis = orig_array.copy()
-            background_mask = mask_binary == 0
-            vis[background_mask] = (vis[background_mask] * 0.3).astype(np.uint8)  # Darken background
-            
-            return vis
-            
-        except Exception as e:
-            self.logger.log(f"❌ Postprocessing failed: {e}")
-            print(f"❌ Postprocessing failed: {e}")
-            return None
-    
-    def process_image_url(self, image_url: str, plot: bool = False) -> np.ndarray:
-        """Process image from URL with SPEED optimizations"""
-        try:
-            # ⚡ SPEED: Minimal logging for performance
             print("Step 2: Fast preprocessing...")
-            
-            # Preprocess
             pixel_values, original_image = self._preprocess_image(image_url)
             if pixel_values is None:
                 return None
-            
             print("Step 3: Running inference...")
-            # Inference
-            mask_tensor = self._run_inference(pixel_values)
-            if mask_tensor is None:
+            # Pass target size for F.interpolate (USER's training method)
+            target_size = (self.image_size, self.image_size)  # Training size first
+            pred_mask = self._run_inference(pixel_values, target_size)
+            if pred_mask is None:
                 return None
+            # Now resize to ORIGINAL image size (not training size)
+            if pred_mask.shape != original_image.size[::-1]:
+                print(f"   🔄 Final resize: {pred_mask.shape} → {original_image.size[::-1]}")
+                pred_mask_pil = Image.fromarray(pred_mask.astype(np.uint8), mode="L")
+                pred_mask_pil = pred_mask_pil.resize(original_image.size, Image.NEAREST)
+                pred_mask = np.array(pred_mask_pil)
+            # SMART class detection - try multiple likely mannequin classes
+            unique_classes, counts = np.unique(pred_mask, return_counts=True)
+            class_info = list(zip(unique_classes, counts))
+            print(f"   📊 Final class distribution: {class_info}")
             
-            print("Step 4: Fast postprocessing...")
-            # Postprocess
-            visualization = self._postprocess_mask(mask_tensor, original_image)
-            if visualization is None:
-                return None
-            
+            # Try person class (15) and mannequin class (1) first
+            best_class = None
+            best_pixels = 0
+            for cls in [15, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 18, 19, 20]:
+                if cls in unique_classes:
+                    pixels = counts[unique_classes == cls][0]
+                    if pixels > best_pixels and pixels > 1000:  # Minimum threshold
+                        best_pixels = pixels
+                        best_class = cls
+                        
+            if best_class is None:
+                print("   ⚠️ No significant class found, using largest non-background")
+                non_bg_classes = [(cls, cnt) for cls, cnt in class_info if cls != 0]
+                if non_bg_classes:
+                    best_class = max(non_bg_classes, key=lambda x: x[1])[0]
+                    best_pixels = max(non_bg_classes, key=lambda x: x[1])[1]
+                else:
+                    best_class = 1  # Fallback
+                    
+            print(f"   🎯 Using class {best_class} as mannequin ({best_pixels:,} pixels)")
+            mannequin_mask = (pred_mask == best_class).astype(np.uint8)
+            print("Step 4: White background postprocessing...")
+            result_img = apply_white_background(original_image, mannequin_mask)
             print("✅ Processing complete")
-            
-            return visualization
-            
+            if plot:
+                import matplotlib.pyplot as plt
+                plt.figure(figsize=(8,8))
+                plt.imshow(result_img)
+                plt.axis('off')
+                plt.title("Background white, mannequin preserved")
+                plt.show()
+            return result_img
         except Exception as e:
-            self.logger.log(f"❌ Process image failed: {e}")
             print(f"❌ Process image failed: {e}")
             return None
-    
+
     def get_model_info(self) -> dict:
-        """Get model information"""
         return {
             "model_name": self.model_name,
             "model_path": self.model_path,
@@ -378,4 +396,10 @@ class DeepLabV3MobileViTSegmenter:
             "architecture": "DeepLabV3-MobileViT",
             "parameters": sum(p.numel() for p in self.model.parameters()),
             "trainable_parameters": sum(p.numel() for p in self.model.parameters() if p.requires_grad)
-        } 
+        }
+
+# --- Példa használat ---
+# segmenter = DeepLabV3MobileViTSegmenter()
+# url = "https://example.com/your_image.jpg"
+# out_img = segmenter.process_image_url(url, plot=True)
+# out_img.save("output_whitebg.png")
