@@ -1,7 +1,12 @@
 import os
 import boto3
 from datetime import datetime
-from .env_utils import get_env_variable
+
+# Handle both relative and absolute imports
+try:
+    from .env_utils import get_env_variable
+except ImportError:
+    from env_utils import get_env_variable
 
 class AppLogger:
     """

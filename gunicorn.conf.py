@@ -6,12 +6,12 @@ import os
 bind = "0.0.0.0:5001"
 backlog = 2048
 
-# Worker processes - OPTIMIZED FOR 30 MODEL POOL ARCHITECTURE  
-# Strategy: 1 worker + 40 threads + 30 model pool = max 40 concurrent requests per instance
-workers = 1  # CRITICAL: Single worker to avoid multiple model loading on GPU
+# Worker processes - OPTIMIZED FOR HORIZONTAL SCALING (60 INSTANCES)
+# Strategy: 1 worker + 1 thread per instance, 60 instances = 60 concurrent capacity
+workers = 1  # Single worker per instance
 worker_class = "sync"  # Sync worker for Flask  
-threads = 60  # 🚀 INCREASED: 40 → 60 threads to match 60 model pool
-worker_connections = 20  # Adequate for async processing
+threads = 1  # Single thread per instance (concurrency=1 on Cloud Run)
+worker_connections = 5  # Lower since only 1 concurrent request per instance
 timeout = 600  # 10 minutes for model inference
 keepalive = 5
 
@@ -39,12 +39,11 @@ graceful_timeout = 60  # Increased timeout for model cleanup
 # Preload application for better memory usage
 preload_app = False  # Changed to False to avoid model loading issues
 
-# Environment variables - PERFORMANCE OPTIMIZED
+# Environment variables - MAXIMUM CPU UTILIZATION
 raw_env = [
     f"PYTHONPATH={os.getenv('PYTHONPATH', '/app')}",
-    # "PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:128",  # Temporarily disabled - causes PyTorch crash
-    "OMP_NUM_THREADS=8",  # Optimize CPU threads
-    "MKL_NUM_THREADS=8",  # Intel MKL optimization
+    # Note: Threading will be set dynamically by DeepLabV3_MobileViT based on available cores
+    # Cloud Run has 2 CPUs, local machines may have more
 ]
 
 def when_ready(server):

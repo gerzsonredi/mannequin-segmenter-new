@@ -9,8 +9,15 @@ import threading
 import time
 import torch
 from typing import List, Optional, Any
-from .BirefNet import BiRefNetSegmenter
-from .logger import AppLogger
+
+# Handle both relative and absolute imports for local testing
+try:
+    from .BirefNet import BiRefNetSegmenter
+    from .logger import AppLogger
+except ImportError:
+    # Fallback for local testing
+    from BirefNet import BiRefNetSegmenter
+    from logger import AppLogger
 
 class CUDAStreamPool:
     """

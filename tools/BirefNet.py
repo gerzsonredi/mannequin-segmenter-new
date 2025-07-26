@@ -181,7 +181,14 @@ class BiRefNetSegmenter:
         self.logger.log("Initializing BiRefNet Segmenter")
         print("Initializing BiRefNet Segmenter")
         
-        if torch.cuda.is_available():
+        # Check if CPU is forced via environment variable
+        force_cpu = os.getenv('FORCE_CPU', 'false').lower() == 'true'
+        
+        if force_cpu:
+            self.device = torch.device("cpu")
+            self.logger.log("🔧 FORCE_CPU enabled - Using CPU for horizontal scaling")
+            print("🔧 FORCE_CPU enabled - Using CPU for horizontal scaling")
+        elif torch.cuda.is_available():
             device_count = torch.cuda.device_count()
             device_id = 0
             self.device = torch.device(f"cuda:{device_id}")

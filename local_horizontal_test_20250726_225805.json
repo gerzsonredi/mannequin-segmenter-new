@@ -1,0 +1,90 @@
+{
+  "test_config": {
+    "num_requests": 10,
+    "local_url": "http://localhost:5001",
+    "test_image": "https://public-images-redivivum.s3.eu-central-1.amazonaws.com/Remix_data/Majka-teniska-Mustang-132434083b.jpg",
+    "architecture": "Single Model per Instance (Horizontal Scaling)",
+    "timestamp": "20250726_225805"
+  },
+  "performance": {
+    "total_time": 43.4179413318634,
+    "success_count": 10,
+    "failure_count": 0,
+    "throughput": 0.23031953365926255,
+    "avg_duration": 26.13076674938202,
+    "min_duration": 12.344377279281616,
+    "max_duration": 43.416932106018066
+  },
+  "detailed_results": [
+    {
+      "request_id": 1,
+      "success": true,
+      "duration": 36.413981914520264,
+      "status_code": 200,
+      "response_size": 104
+    },
+    {
+      "request_id": 2,
+      "success": true,
+      "duration": 14.310930013656616,
+      "status_code": 200,
+      "response_size": 104
+    },
+    {
+      "request_id": 3,
+      "success": true,
+      "duration": 34.075080156326294,
+      "status_code": 200,
+      "response_size": 104
+    },
+    {
+      "request_id": 4,
+      "success": true,
+      "duration": 12.344377279281616,
+      "status_code": 200,
+      "response_size": 104
+    },
+    {
+      "request_id": 5,
+      "success": true,
+      "duration": 36.71873617172241,
+      "status_code": 200,
+      "response_size": 104
+    },
+    {
+      "request_id": 6,
+      "success": true,
+      "duration": 13.770414113998413,
+      "status_code": 200,
+      "response_size": 104
+    },
+    {
+      "request_id": 7,
+      "success": true,
+      "duration": 34.49033999443054,
+      "status_code": 200,
+      "response_size": 104
+    },
+    {
+      "request_id": 8,
+      "success": true,
+      "duration": 23.02829384803772,
+      "status_code": 200,
+      "response_size": 104
+    },
+    {
+      "request_id": 9,
+      "success": true,
+      "duration": 43.416932106018066,
+      "status_code": 200,
+      "response_size": 104
+    },
+    {
+      "request_id": 10,
+      "success": true,
+      "duration": 12.738581895828247,
+      "status_code": 200,
+      "response_size": 104
+    }
+  ]
+}

@@ -24,6 +24,24 @@ import cv2 # Added for cv2.cvtColor
 import time # Added for time.time()
 import gc # Added for garbage collection
 
+# 🧵 GLOBAL CPU THREADING OPTIMIZATION - BEFORE MODEL LOADING
+force_cpu = os.getenv('FORCE_CPU', 'false').lower() == 'true'
+if force_cpu or not torch.cuda.is_available():
+    cpu_count = os.cpu_count() or 4
+    print(f"🧵 GLOBAL CPU OPTIMIZATION: Setting up {cpu_count} threads for maximum performance")
+    
+    # Set PyTorch threading
+    torch.set_num_threads(cpu_count)
+    
+    # Set environment variables for all multi-threading libraries
+    os.environ['OMP_NUM_THREADS'] = str(cpu_count)
+    os.environ['MKL_NUM_THREADS'] = str(cpu_count)
+    os.environ['NUMEXPR_MAX_THREADS'] = str(cpu_count)
+    os.environ['BLAS_NUM_THREADS'] = str(cpu_count)
+    os.environ['TORCH_THREADS'] = str(cpu_count)
+    
+    print(f"✅ Global threading configured: {torch.get_num_threads()} PyTorch threads")
+
 # PyTorch Global Configuration for Inference
 torch.backends.cudnn.benchmark = True  # Good for fixed input size
 torch.set_grad_enabled(False)  # Global inference mode
@@ -31,26 +49,34 @@ torch.set_grad_enabled(False)  # Global inference mode
 # Initialize device and AMP dtype
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# Global CUDA Stream Pool initialization - REVOLUTIONARY ARCHITECTURE
-print("🌊 Loading CUDA Stream Pool globally...")
+# Single Model initialization - FAST DEEPLABV3-MOBILEVIT ARCHITECTURE  
+print("🚀 Loading Fast DeepLabV3-MobileViT Model globally (CPU optimized)...")
 try:
-    from tools.cuda_stream_pool import get_global_cuda_stream_pool
-    cuda_stream_pool = get_global_cuda_stream_pool()
+    from tools.DeepLabV3_MobileViT import DeepLabV3MobileViTSegmenter
     
-    # Try to use fp16 for optimal GPU memory usage
-    try:
-        AMP_DTYPE = torch.float16  # Match the model precision
-        print(f"✅ Using AMP dtype: {AMP_DTYPE}")
-    except Exception as e:
+    # Initialize single fast model per instance (concurrency=1)
+    single_model = DeepLabV3MobileViTSegmenter(
+        model_path="models/mannequin_segmenter_deeplabv3_mobilevit/checkpoint_20250726.pt",
+        model_name="apple/deeplabv3-mobilevit-xx-small", 
+        image_size=512,
+        precision="fp32",  # CPU uses fp32
+        vis_save_dir="infer"
+    )
+    
+    # Set AMP dtype based on device
+    if single_model.device.type == 'cuda':
+        AMP_DTYPE = torch.float16
+    else:
         AMP_DTYPE = torch.float32
-        print(f"⚠️ Fallback to fp32 AMP: {e}")
         
-    print("✅ Global CUDA Stream Pool loaded successfully!")
-    print("💾 Memory savings: 98% vs old 60-model architecture")
+    print(f"✅ Fast DeepLabV3-MobileViT model loaded on {single_model.device}")
+    print(f"✅ Using AMP dtype: {AMP_DTYPE}")
+    print("🏗️ Architecture: 60 instances × 1 fast model = 60 parallel capacity")
+    print(f"📊 Model size: {single_model.get_model_info()['parameters']:,} parameters")
     
 except Exception as e:
-    print(f"❌ Failed to load CUDA stream pool: {e}")
-    cuda_stream_pool = None
+    print(f"❌ Failed to load single model: {e}")
+    single_model = None
     AMP_DTYPE = torch.float32
 
 def log_cuda_memory(tag=""):
@@ -86,17 +112,17 @@ def create_app(testing=False):
         region_name=aws_s3_region
     )
     
-    # Use global model pool - no need to reload
-    # In testing, this will be mocked to avoid loading the real models.
+    # Use global single model - no need to reload
+    # In testing, this will be mocked to avoid loading the real model.
     if testing:
-        global model_pool
-        model_pool = None  # Will be replaced by mock in tests
+        global single_model
+        single_model = None  # Will be replaced by mock in tests
     else:
-        # model_pool is already loaded globally
-        if model_pool is None:
-            print("Error! Global model pool not loaded!")
+        # single_model is already loaded globally
+        if single_model is None:
+            print("Error! Global single model not loaded!")
             exit(1)
-        print("Using global model pool!")
+        print("Using global single model!")
 
     @app.route('/health', methods=['GET'])
     def health():
@@ -112,13 +138,23 @@ def create_app(testing=False):
     def status():
         """Get current server load, request limiter status, and model pool stats."""
         limiter_status = get_limiter_status()
-        pool_stats = model_pool.get_stats() if model_pool else {"error": "Model pool not available"}
+        if single_model:
+            model_info = single_model.get_model_info()
+            model_stats = {
+                "model_loaded": True,
+                "device": model_info["device"],
+                "architecture": f"CPU Horizontal Scaling (60 instances) - {model_info['architecture']}",
+                "model_name": model_info["model_name"],
+                "parameters": model_info["parameters"]
+            }
+        else:
+            model_stats = {"error": "Single model not available"}
         
         return jsonify({
             'service': 'mannequin-segmenter-api',
             'timestamp': datetime.utcnow().isoformat(),
             'request_limiter': limiter_status,
-            'model_pool': pool_stats,
+            'model_info': model_stats,
             'recommendation': {
                 'load_level': 'low' if limiter_status['load_percentage'] < 50 else 'high' if limiter_status['load_percentage'] < 90 else 'critical',
                 'can_accept_requests': limiter_status['slots_available'] > 0 and pool_stats.get('available_models', 0) > 0
@@ -127,15 +163,42 @@ def create_app(testing=False):
     
     @app.route('/pool_stats', methods=['GET'])
     def pool_stats():
-        """Get detailed CUDA stream pool statistics."""
-        if cuda_stream_pool is None:
-            return jsonify({"error": "CUDA stream pool not available"}), 500
+        """Get single model statistics for horizontal scaling architecture."""
+        if single_model is None:
+            return jsonify({"error": "Single model not available"}), 500
             
-        stats = cuda_stream_pool.get_stats()
+        if single_model:
+            model_info = single_model.get_model_info()
+            stats = {
+                "architecture": "CPU Horizontal Scaling (Fast DeepLabV3-MobileViT)",
+                "model_loaded": True,
+                "device": model_info["device"],
+                "model_name": model_info["model_name"],
+                "precision": model_info["precision"],
+                "image_size": model_info["image_size"],
+                "parameters": model_info["parameters"],
+                "instances": "60 instances × 1 concurrent = 60 parallel capacity",
+                "memory_per_instance": "4Gi",
+                "cpu_per_instance": "2",
+                "model_architecture": model_info["architecture"]
+            }
+        else:
+            stats = {"error": "Single model not available"}
+        
+        # Add GPU memory if available
+        if single_model and single_model.device.type == 'cuda':
+            try:
+                stats["gpu_memory"] = {
+                    "allocated_gb": torch.cuda.memory_allocated() / 1024**3,
+                    "reserved_gb": torch.cuda.memory_reserved() / 1024**3,
+                    "max_allocated_gb": torch.cuda.max_memory_allocated() / 1024**3,
+                }
+            except:
+                pass
         
         return jsonify({
             'timestamp': datetime.utcnow().isoformat(),
-            'pool_statistics': stats
+            'model_statistics': stats
         })
     
     @app.route('/debug_batch', methods=['POST'])
@@ -214,38 +277,33 @@ def create_app(testing=False):
     @torch.inference_mode()
     def infer():
         try:
-            api_logger.log("Received inference request")
-            print("Received inference request")
+            # ⚡ SPEED: Fast request parsing
+            print("Step 1: Fast request parsing...")
             data = request.get_json()
             if not data or 'image_url' not in data:
-                api_logger.log("Error: image_url not provided in request")
-                print("Error: image_url not provided in request")
                 return jsonify({"error": "image_url not provided"}), 400
 
             image_url = data['image_url']
-            upload_s3 = data.get('upload_s3', True)  # Default to True for backward compatibility
+            upload_s3 = data.get('upload_s3', True)
 
-            # Check if CUDA stream pool loaded successfully
-            if cuda_stream_pool is None:
-                api_logger.log("ERROR: CUDA stream pool not loaded, returning test response")
-                print("ERROR: CUDA stream pool not loaded, returning test response")
-                return jsonify({
-                    "error": "cuda stream pool failed to load",
-                    "visualization_url": "https://test-response.example.com/test.jpg",
-                    "input_url": image_url
-                }), 500 # Return 500 as it's a server-side issue
+            # ⚡ SPEED: Quick model check
+            if single_model is None:
+                return jsonify({"error": "model not loaded"}), 500
         except Exception as e:
             api_logger.log(f"Exception in /infer input handling: {str(e)}")
             print(f"Exception in /infer input handling: {str(e)}")
             return jsonify({"error": str(e)}), 500
         
         try:
-            print("Step 3: About to call CUDA stream pool process_image_sync")
-            api_logger.log("Step 3: About to call CUDA stream pool process_image_sync")
-            # Use CUDA stream pool for processing - optimal GPU memory usage with parallel streams
-            vis = cuda_stream_pool.process_image_sync(image_url)
-            print("Step 4: CUDA stream pool process_image_sync completed")
-            api_logger.log("Step 4: CUDA stream pool process_image_sync completed")
+            print("Step 3: Starting fast inference...")
+            # ⚡ SPEED: Minimal logging for performance
+            start_inference = time.time()
+            
+            # Use single model for processing - simple and efficient for 1 concurrent request per instance
+            vis = single_model.process_image_url(image_url, plot=False)
+            
+            inference_time = time.time() - start_inference
+            print(f"Step 4: Fast inference completed in {inference_time:.2f}s")
 
             if vis is None:
                 print(f"Error: Failed to process image from URL: {image_url}")
@@ -280,12 +338,11 @@ def create_app(testing=False):
                     "visualization_url": s3_url,
                 })
             else:
-                print("Step 5: Skipping S3 upload (upload_s3=false)")
-                api_logger.log("Step 5: Skipping S3 upload (upload_s3=false)")
+                # ⚡ SPEED: Minimal response for fast processing
+                print("Step 5: Fast response (no S3)")
                 
                 return jsonify({
                     "success": True,
-                    "message": "Image processed successfully (no S3 upload)",
                     "inference_completed": True
                 })
 
@@ -296,11 +353,9 @@ def create_app(testing=False):
             return jsonify({"error": str(e)}), 500
 
     @app.route('/batch_infer', methods=['POST'])
-    @limit_concurrent_requests
     @torch.inference_mode()
     def batch_infer():
-        """Batch inference endpoint for processing multiple images simultaneously using CUDA stream pool."""
-        cuda_stream_pool = current_app.config['CUDA_STREAM_POOL']
+        """Batch inference endpoint - processes images sequentially on single instance for horizontal scaling."""
         try:
             api_logger.log("Received batch inference request")
             print("Received batch inference request")
@@ -322,12 +377,12 @@ def create_app(testing=False):
                 print(f"Error: batch size {len(image_urls)} exceeds maximum of 50")
                 return jsonify({"error": "Maximum batch size is 50 images"}), 400
 
-            # Check if model pool loaded successfully
-            if model_pool is None:
-                api_logger.log("ERROR: Model pool not loaded for batch processing")
-                print("ERROR: Model pool not loaded for batch processing")
+            # Check if single model loaded successfully
+            if single_model is None:
+                api_logger.log("ERROR: Single model not loaded for batch processing")
+                print("ERROR: Single model not loaded for batch processing")
                 return jsonify({
-                    "error": "model pool failed to load",
+                    "error": "single model failed to load",
                     "batch_size": len(image_urls)
                 }), 500
 
@@ -338,45 +393,39 @@ def create_app(testing=False):
         
         try:
             batch_size = len(image_urls)
-            api_logger.log(f"🏊‍♂️ Processing batch of {batch_size} images using MODEL POOL with parallel processing")
-            print(f"🏊‍♂️ Processing batch of {batch_size} images using MODEL POOL with parallel processing")
+            api_logger.log(f"📋 Processing batch of {batch_size} images SEQUENTIALLY on single model (horizontal scaling)")
+            print(f"📋 Processing batch of {batch_size} images SEQUENTIALLY on single model (horizontal scaling)")
             
-            # Reset peak memory stats for this batch
-            if torch.cuda.is_available():
-                torch.cuda.reset_peak_memory_stats()
-            log_cuda_memory("batch_start")
-            
-            # Get pool stats before processing
-            pool_stats = cuda_stream_pool.get_stats()
-            api_logger.log(f"📊 CUDA Stream Pool stats: {pool_stats['num_streams']} streams, {pool_stats['active_requests']} active")
-            print(f"📊 CUDA Stream Pool stats: {pool_stats['num_streams']} streams, {pool_stats['active_requests']} active")
-            
-            # Use CUDA stream pool for PARALLEL batch processing across multiple streams
+            # Sequential processing with single model
             try:
-                api_logger.log(f"🚀 Starting PARALLEL BATCH PROCESSING across {pool_stats['num_streams']} CUDA streams")
-                print(f"🚀 Starting PARALLEL BATCH PROCESSING across {pool_stats['num_streams']} CUDA streams")
+                api_logger.log(f"🚀 Starting SEQUENTIAL BATCH PROCESSING on {single_model.device}")
+                print(f"🚀 Starting SEQUENTIAL BATCH PROCESSING on {single_model.device}")
                 
-                # CUDA stream pool automatically distributes requests across available streams  
-                import asyncio
-                processed_images = asyncio.run(cuda_stream_pool.process_batch_async(image_urls))
+                processed_images = []
+                for i, image_url in enumerate(image_urls):
+                    try:
+                        print(f"  Processing image {i+1}/{batch_size}: {image_url}")
+                        result = single_model.process_image_url(image_url, plot=False)
+                        processed_images.append(result)
+                    except Exception as img_error:
+                        print(f"  ❌ Failed to process image {i+1}: {img_error}")
+                        processed_images.append(None)
                 
                 # Filter out None results
                 valid_images = [img for img in processed_images if img is not None]
                 
-                api_logger.log(f"✅ PARALLEL BATCH SUCCESS: {len(valid_images)}/{batch_size} images processed")
-                print(f"✅ PARALLEL BATCH SUCCESS: {len(valid_images)}/{batch_size} images processed")
-                log_cuda_memory("batch_success")
+                api_logger.log(f"✅ SEQUENTIAL BATCH SUCCESS: {len(valid_images)}/{batch_size} images processed")
+                print(f"✅ SEQUENTIAL BATCH SUCCESS: {len(valid_images)}/{batch_size} images processed")
                 
-                # Get pool stats after processing
-                final_stats = model_pool.get_stats()
-                api_logger.log(f"📊 Pool stats after processing: {final_stats['available_models']}/{final_stats['pool_size']} models available, {final_stats['active_requests']} active")
-                print(f"📊 Pool stats after processing: {final_stats['available_models']}/{final_stats['pool_size']} models available, {final_stats['active_requests']} active")
+                # Single model processing complete
+                api_logger.log(f"📊 Single model batch processing complete on {single_model.device}")
+                print(f"📊 Single model batch processing complete on {single_model.device}")
                 
                 processed_images = valid_images
                 
             except Exception as batch_error:
-                api_logger.log(f"❌ Model pool batch processing failed: {batch_error}")
-                print(f"❌ Model pool batch processing failed: {batch_error}")
+                api_logger.log(f"❌ Single model batch processing failed: {batch_error}")
+                print(f"❌ Single model batch processing failed: {batch_error}")
                 return jsonify({"error": f"Batch processing failed: {str(batch_error)}"}), 500
             
             if not processed_images or len(processed_images) == 0:
@@ -464,11 +513,14 @@ def create_app(testing=False):
             return jsonify({"error": str(e), "batch_size": len(image_urls)}), 500
             
     @app.route('/batch_infer_optimized', methods=['POST'])
-    @limit_concurrent_requests
-    @torch.inference_mode()
     def batch_infer_optimized():
-        """OPTIMIZED batch inference for 6-second target using CUDA STREAMS."""
-        cuda_stream_pool = current_app.config['CUDA_STREAM_POOL']
+        """Optimized batch processing not needed in horizontal scaling mode."""
+        return jsonify({
+            "info": "Optimized batch processing not needed in horizontal scaling mode",
+            "recommendation": "Send individual requests to /infer - load balancer will distribute across 60 instances",
+            "architecture": "60 instances × 1 concurrent = 60 parallel capacity",
+            "alternative": "Use /batch_infer for sequential processing on single instance"
+        }), 200
         try:
             api_logger.log("🚀 OPTIMIZED batch inference request")
             print("🚀 OPTIMIZED batch inference request")
@@ -621,11 +673,14 @@ def create_app(testing=False):
             return jsonify({"error": error_msg}), 500
 
     @app.route('/batch_infer_lightweight', methods=['POST'])
-    @limit_concurrent_requests 
-    @torch.inference_mode()
     def batch_infer_lightweight():
-        """LIGHTWEIGHT batch inference for 6-second target with CUDA streams."""
-        cuda_stream_pool = current_app.config['CUDA_STREAM_POOL']
+        """Lightweight batch processing not needed in horizontal scaling mode."""
+        return jsonify({
+            "info": "Lightweight batch processing not needed in horizontal scaling mode",
+            "recommendation": "Send individual requests to /infer - load balancer will distribute across 60 instances",
+            "architecture": "60 instances × 1 concurrent = 60 parallel capacity",
+            "alternative": "Use /batch_infer for sequential processing on single instance"
+        }), 200
         try:
             api_logger.log("🚀 LIGHTWEIGHT batch inference request")
             print("🚀 LIGHTWEIGHT batch inference request")
@@ -726,7 +781,7 @@ def create_app(testing=False):
 
     # Attach objects to app context for easier testing and access
     app.config['S3_CLIENT'] = s3_client
-    app.config['CUDA_STREAM_POOL'] = cuda_stream_pool
+    app.config['SINGLE_MODEL'] = single_model
     app.config['API_LOGGER'] = api_logger
     # app.config['DEFAULT_PROMPT_MODE'] = default_prompt_mode
 
