@@ -15,9 +15,9 @@ worker_connections = 20  # Adequate for async processing
 timeout = 600  # 10 minutes for model inference
 keepalive = 5
 
-# Restart workers after fewer requests to prevent memory buildup
-max_requests = 20  # Reduced from 1000 to prevent memory leaks
-max_requests_jitter = 10  # Reduced jitter
+# Restart workers after more requests to allow model pool to be utilized longer
+max_requests = 100  # Increased from 20 to prevent frequent model pool reinitialization
+max_requests_jitter = 20  # Proportional jitter
 
 # Logging
 accesslog = "-"  # Log to stdout

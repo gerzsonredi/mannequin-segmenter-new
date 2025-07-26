@@ -135,7 +135,7 @@ async def batch_worker():
                     processed_images.append(None)
             else:
                 # REAL BATCH PROCESSING - multiple images in one GPU forward pass
-                try:
+                    try:
                     # Convert RGB to BGR for all images
                     batch_images_bgr = [img[:, :, ::-1] for img in images]
                     
@@ -147,15 +147,15 @@ async def batch_worker():
                     
                     api_logger.log(f"✅ Batch processing completed: {len([r for r in batch_results if r is not None])}/{len(batch_results)} successful")
                     
-                except Exception as e:
+                    except Exception as e:
                     api_logger.log(f"Batch processing failed, falling back to sequential: {e}")
-                    
+                
                     # Fallback to sequential processing
-                    for img_array in images:
+                for img_array in images:
                         try:
                             img_bgr = img_array[:, :, ::-1]
                             result = inferencer.process_image_array(img_bgr, plot=False)
-                            processed_images.append(result)
+                    processed_images.append(result)
                         except Exception as single_e:
                             api_logger.log(f"Error processing image in fallback: {single_e}")
                             processed_images.append(None)

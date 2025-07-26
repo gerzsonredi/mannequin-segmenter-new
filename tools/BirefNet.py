@@ -15,6 +15,8 @@ from torchvision.transforms import functional as F
 from dotenv import load_dotenv
 from typing import List
 import time
+import uuid
+import threading
 
 # Import utilities from tools package
 try:
@@ -350,10 +352,10 @@ class BiRefNetSegmenter:
                 except NameError:
                     pass  # Variables may not exist if there was an earlier exception
                 
-                # GPU memory cleanup after inference
+                # GPU memory cleanup after inference (NO SYNCHRONIZE for parallel execution!)
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
-                    torch.cuda.synchronize()
+                    # torch.cuda.synchronize()  # ❌ REMOVED: Blocks parallel execution!
                 
                 return mask_cpu
                 
@@ -385,7 +387,7 @@ class BiRefNetSegmenter:
                 # GPU memory cleanup even on error
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
-                    torch.cuda.synchronize()
+                    # torch.cuda.synchronize()
                     
                 raise
 
@@ -479,7 +481,7 @@ class BiRefNetSegmenter:
                 # GPU memory cleanup even on error
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
-                    torch.cuda.synchronize()
+                    # torch.cuda.synchronize()
                 
                 raise e
 
@@ -678,7 +680,10 @@ class BiRefNetSegmenter:
         Returns:
             Processed image with mannequins removed
         """
-        fname = os.path.join(self.vis_save_dir, "temp_image.jpg")
+        # ✅ FIXED: Generate unique filename per request to avoid race conditions
+        unique_id = uuid.uuid4().hex
+        thread_id = threading.current_thread().ident
+        fname = os.path.join(self.vis_save_dir, f"temp_image_{thread_id}_{unique_id}.jpg")
         
         try:
             # Download image
@@ -758,25 +763,25 @@ class BiRefNetSegmenter:
         if os.path.exists(fname):
             os.remove(fname)
             
-        # GPU memory cleanup after processing
+        # GPU memory cleanup after processing (NO SYNCHRONIZE for parallel execution!)
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
             gc.collect()
-            torch.cuda.synchronize()
+            # torch.cuda.synchronize()  # ❌ REMOVED: Blocks parallel execution!
             
         # Periodic aggressive cache clearing to prevent memory fragmentation
         if not hasattr(self, '_image_counter'):
             self._image_counter = 0
         self._image_counter += 1
         
-        # Every 10 images, do aggressive cleanup
+        # Every 10 images, do aggressive cleanup (NO SYNCHRONIZE for parallel execution!)
         if self._image_counter % 10 == 0:
             self.logger.log(f"🧹 Aggressive memory cleanup after {self._image_counter} images")
             print(f"🧹 Aggressive memory cleanup after {self._image_counter} images")
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
                 torch.cuda.ipc_collect()
-                torch.cuda.synchronize()
+                # torch.cuda.synchronize()  # ❌ REMOVED: Blocks parallel execution!
             gc.collect()
             
         msg = f"Finished processing image from URL: {image_url}"
@@ -847,10 +852,11 @@ class BiRefNetSegmenter:
             plt.show()
             
         # GPU memory cleanup after processing
+        # Memory cleanup after batch processing (NO SYNCHRONIZE for parallel execution!)  
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
             gc.collect()
-            torch.cuda.synchronize()
+            # torch.cuda.synchronize()  # ❌ REMOVED: Blocks parallel execution!
             
         self.logger.log("Finished processing image array")
         print("Finished processing image array")
@@ -994,10 +1000,10 @@ class BiRefNetSegmenter:
             self.logger.log(f"Batch processing completed: {success_count}/{total_requested} successful, {failed_count} failed")
             print(f"Batch processing completed: {success_count}/{total_requested} successful, {failed_count} failed")
             
-            # Final GPU memory cleanup
+            # Final GPU memory cleanup (NO SYNCHRONIZE for parallel execution!)
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-                torch.cuda.synchronize()
+                # torch.cuda.synchronize()  # ❌ REMOVED: Blocks parallel execution!
             
             return processed_images
             
@@ -1006,10 +1012,10 @@ class BiRefNetSegmenter:
             self.logger.log(error_msg)
             print(error_msg)
             
-            # Cleanup GPU memory even on error
+            # Cleanup GPU memory even on error (NO SYNCHRONIZE for parallel execution!)
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-                torch.cuda.synchronize()
+                # torch.cuda.synchronize()  # ❌ REMOVED: Blocks parallel execution!
             
             return processed_images  # Return whatever we managed to process
     
@@ -1126,10 +1132,10 @@ class BiRefNetSegmenter:
             print(f"   Throughput: {batch_size/total_time:.2f} images/second")
             print(f"   Time per image: {total_time/batch_size:.3f}s")
             
-            # GPU memory cleanup
+            # GPU memory cleanup (NO SYNCHRONIZE for parallel execution!)
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-                torch.cuda.synchronize()
+                # torch.cuda.synchronize()  # ❌ REMOVED: Blocks parallel execution!
             
             return processed_images
             
@@ -1137,10 +1143,10 @@ class BiRefNetSegmenter:
             self.logger.log(f"Error in batch processing: {e}")
             print(f"Error in batch processing: {e}")
             
-            # GPU memory cleanup even on error
+            # GPU memory cleanup even on error (NO SYNCHRONIZE for parallel execution!)
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-                torch.cuda.synchronize()
+                # torch.cuda.synchronize()  # ❌ REMOVED: Blocks parallel execution!
             
             # Fallback to sequential processing
             self.logger.log("Falling back to sequential processing...")

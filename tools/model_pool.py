@@ -181,14 +181,10 @@ class BiRefNetModelPool:
         if not image_urls:
             return []
         
-        # For small batches, use single model
-        if len(image_urls) <= 2:
-            with self.get_model() as model:
-                return [model.process_image_url(url, **kwargs) for url in image_urls]
-        
-        # For larger batches, distribute across multiple models
+        # ✅ ALWAYS USE PARALLEL PROCESSING - NO MORE SEQUENTIAL FALLBACK!
+        # Even for 1-2 images, use ThreadPoolExecutor for consistency
         results = [None] * len(image_urls)
-        max_workers = min(len(image_urls), self.pool_size)  # ✅ Use ALL 10 models for maximum parallelism
+        max_workers = min(len(image_urls), self.pool_size)  # Use ALL available models
         
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             # Submit all tasks

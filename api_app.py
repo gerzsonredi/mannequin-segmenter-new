@@ -412,8 +412,8 @@ def create_app(testing=False):
                     print(error_msg)
                     return i, None, str(upload_error)
             
-            # Upload images in parallel (max 3 concurrent to be conservative)
-            with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+            # Upload images in parallel (max 15 concurrent for 30 model pool utilization)
+            with concurrent.futures.ThreadPoolExecutor(max_workers=15) as executor:
                 upload_tasks = [(i, img) for i, img in enumerate(processed_images)]
                 upload_results = list(executor.map(upload_single_image, upload_tasks))
             

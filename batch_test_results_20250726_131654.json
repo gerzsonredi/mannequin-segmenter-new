@@ -1,0 +1,100 @@
+{
+  "timestamp": "2025-07-26T13:16:54.956391",
+  "test_results": {
+    "config": {
+      "batch_size": 5,
+      "concurrent_batches": 2,
+      "total_images": 10,
+      "image_set": "mixed",
+      "upload_s3": true
+    },
+    "summary": {
+      "total_duration": 7.954775094985962,
+      "successful_batches": 2,
+      "failed_batches": 0,
+      "total_successful_images": 8,
+      "total_failed_images": 2,
+      "overall_throughput": 1.0056852525023046,
+      "avg_batch_throughput": 0.513332975806127
+    },
+    "batch_stats": {
+      "avg_duration": 7.745300531387329,
+      "median_duration": 7.745300531387329,
+      "min_duration": 7.536371946334839,
+      "max_duration": 7.954229116439819
+    },
+    "batches": [
+      {
+        "batch_id": 1,
+        "success": true,
+        "duration": 7.536371946334839,
+        "successful_count": 3,
+        "failed_count": 2,
+        "batch_size": 5,
+        "throughput": 0.3980695248804684,
+        "response": {
+          "batch_size": 5,
+          "failed_count": 2,
+          "input_urls": [
+            "https://images.unsplash.com/photo-1567401893414-76b7b1e5a7a5?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
+            "https://images.unsplash.com/photo-1544966503-7cc5ac882d5f?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80",
+            "https://images.unsplash.com/photo-1594736797933-d0601ba2f4b7?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+            "https://images.unsplash.com/photo-1558769132-cb1aea458c5e?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
+            "https://images.unsplash.com/photo-1574015974293-817f0ebebb74?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80"
+          ],
+          "successful_count": 3,
+          "visualization_urls": [
+            "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_0e731e29-9a7a-4980-886c-3e3d1ca5fb19_0.jpg",
+            "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_97808409-02e3-4c30-aa87-e78bdb43bbfb_1.jpg",
+            "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_62e2d4ed-994b-4899-bced-afcf460154ba_2.jpg"
+          ]
+        }
+      },
+      {
+        "batch_id": 2,
+        "success": true,
+        "duration": 7.954229116439819,
+        "successful_count": 5,
+        "failed_count": 0,
+        "batch_size": 5,
+        "throughput": 0.6285964267317857,
+        "response": {
+          "batch_size": 5,
+          "failed_count": 0,
+          "input_urls": [
+            "https://images.unsplash.com/photo-1581803118522-7b72a50f7e9f?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
+            "https://images.unsplash.com/photo-1596495578065-6e0763fa1178?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+            "https://images.unsplash.com/photo-1502823403499-6ccfcf4fb453?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+            "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80",
+            "https://images.unsplash.com/photo-1520006403909-838d6b92c22e?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80"
+          ],
+          "successful_count": 5,
+          "visualization_urls": [
+            "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_6c89683c-7916-498d-95ad-d3cc807203ef_0.jpg",
+            "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_429fa89b-bfc0-4883-b725-59e86ecec580_1.jpg",
+            "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_d853b14a-aa32-4ff5-ab41-012deed3a93d_2.jpg",
+            "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_9ed226e9-05a9-4579-b756-e743985150db_3.jpg",
+            "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_1d6aba07-c6f8-4efc-8506-c840e1f20eef_4.jpg"
+          ]
+        }
+      }
+    ],
+    "monitoring": [],
+    "final_pool_stats": {
+      "pool_statistics": {
+        "active_requests": 0,
+        "available_models": 10,
+        "gpu_memory": {
+          "allocated_gb": 4.314813613891602,
+          "max_allocated_gb": 5.383070468902588,
+          "reserved_gb": 4.517578125
+        },
+        "initialized": true,
+        "max_active_requests": 10,
+        "pool_size": 10,
+        "total_requests": 20
+      },
+      "timestamp": "2025-07-26T11:16:55.055090"
+    }
+  }
+}
