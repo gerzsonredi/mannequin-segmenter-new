@@ -67,7 +67,7 @@ class RequestLimiter:
 
 # Create global instance optimized for 30 Model Pool Architecture
 # 40 concurrent requests across 30 model instances = optimal 1.33x oversubscription
-request_limiter = RequestLimiter(max_concurrent=40, queue_timeout=300)
+request_limiter = RequestLimiter(max_concurrent=60, queue_timeout=300)
 
 def limit_concurrent_requests(f):
     """
