@@ -17,6 +17,8 @@ from typing import List
 import time
 import uuid
 import threading
+from functools import lru_cache
+from io import BytesIO
 
 # Import utilities from tools package
 try:
@@ -31,6 +33,42 @@ except (ImportError, ValueError):
         from logger import AppLogger
 
 os.environ["TRANSFORMERS_TRUST_REMOTE_CODE"] = "true"
+
+# ✅ SHARED IMAGE CACHE to eliminate duplicate downloads across model instances
+_image_cache = {}
+_cache_lock = threading.Lock()
+
+def _get_cached_image(image_url: str):
+    """Get image from shared cache or download if not cached."""
+    with _cache_lock:
+        if image_url in _image_cache:
+            return _image_cache[image_url]
+    
+    # Download only if not cached
+    try:
+        response = requests.get(image_url, timeout=15)
+        response.raise_for_status()
+        img_data = response.content
+        
+        # Convert to opencv format
+        img_array = np.frombuffer(img_data, np.uint8)
+        img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+        if img is not None:
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        
+        # Cache the result
+        with _cache_lock:
+            _image_cache[image_url] = img
+            # Simple cache size management (keep only last 50 images)
+            if len(_image_cache) > 50:
+                oldest_key = next(iter(_image_cache))
+                del _image_cache[oldest_key]
+        
+        return img
+        
+    except Exception as e:
+        print(f"⚠️ Image download failed: {e} (URL: {image_url})")
+        return None
 
 class BiRefNetSegmenter:
     def __init__(
@@ -183,33 +221,37 @@ class BiRefNetSegmenter:
     def _preprocess_image(self, img: np.ndarray) -> torch.Tensor:
         """
         Preprocess image for BiRefNet inference.
-        Based on the notebook preprocessing approach.
         
         Args:
-            img: Input image in BGR format
+            img: Input image in RGB format
             
         Returns:
             Preprocessed image tensor
         """
         try:
-            # Convert BGR to RGB
-            img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+            # Resize and normalize (using PIL for consistency with notebook)
+            pil_img = Image.fromarray(img)
+            pil_img = pil_img.resize((512, 512), Image.Resampling.BILINEAR)
             
-            # Convert to PIL Image and resize to 512x512 (matching notebook)
-            pil_img = Image.fromarray(img_rgb).convert("RGB").resize((512, 512))
+            # Convert to tensor and normalize
+            img_tensor = torch.tensor(np.array(pil_img), dtype=self.dtype) / 255.0
+            img_tensor = img_tensor.permute(2, 0, 1).unsqueeze(0)  # [B, C, H, W]
             
-            self.logger.log(f"Input image shape: {img.shape}, resized to: {pil_img.size}")
-            print(f"Input image shape: {img.shape}, resized to: {pil_img.size}")
+            # Move to device
+            img_tensor = img_tensor.to(self.device)
             
-            # Convert to tensor (matching notebook - no explicit normalization)
-            img_tensor = F.to_tensor(pil_img).unsqueeze(0).to(self.device)
+            # ✅ MINIMAL LOGGING for parallel performance
+            # self.logger.log(f"Input image shape: {img.shape}, resized to: {pil_img.size}")
+            # print(f"Input image shape: {img.shape}, resized to: {pil_img.size}")
             
-            # Apply half precision if needed
-            if self.precision == 'fp16' and self.device.type == 'cuda':
-                img_tensor = img_tensor.half()
+            # Convert to appropriate precision and memory layout
+            img_tensor = img_tensor.to(dtype=self.dtype)
+            if torch.cuda.is_available():
+                img_tensor = img_tensor.to(memory_format=torch.channels_last)
             
-            self.logger.log(f"Preprocessing output shape: {img_tensor.shape}, dtype: {img_tensor.dtype}")
-            print(f"Preprocessing output shape: {img_tensor.shape}, dtype: {img_tensor.dtype}")
+            # ✅ MINIMAL LOGGING for parallel performance  
+            # self.logger.log(f"Preprocessing output shape: {img_tensor.shape}, dtype: {img_tensor.dtype}")
+            # print(f"Preprocessing output shape: {img_tensor.shape}, dtype: {img_tensor.dtype}")
             
             return img_tensor
             
@@ -229,7 +271,7 @@ class BiRefNetSegmenter:
             Batch tensor with shape [batch_size, 3, 512, 512]
         """
         try:
-            batch_tensors = []
+            preprocessed_images = []
             
             for i, img in enumerate(images):
                 # Convert BGR to RGB
@@ -245,13 +287,14 @@ class BiRefNetSegmenter:
                 if self.precision == 'fp16' and self.device.type == 'cuda':
                     img_tensor = img_tensor.half()
                 
-                batch_tensors.append(img_tensor)
+                preprocessed_images.append(img_tensor)
             
-            # Stack all tensors into a batch
-            batch_tensor = torch.stack(batch_tensors, dim=0)  # [batch_size, 3, 512, 512]
+            # Stack all images into a batch tensor
+            batch_tensor = torch.stack(preprocessed_images, dim=0)
             
-            self.logger.log(f"Batch preprocessing output shape: {batch_tensor.shape}, dtype: {batch_tensor.dtype}")
-            print(f"Batch preprocessing output shape: {batch_tensor.shape}, dtype: {batch_tensor.dtype}")
+            # ✅ MINIMAL LOGGING for parallel performance
+            # self.logger.log(f"Batch preprocessing output shape: {batch_tensor.shape}, dtype: {batch_tensor.dtype}")
+            # print(f"Batch preprocessing output shape: {batch_tensor.shape}, dtype: {batch_tensor.dtype}")
             
             return batch_tensor
             
@@ -343,8 +386,9 @@ class BiRefNetSegmenter:
                 # CRITICAL: Move to CPU immediately to free GPU memory
                 mask_cpu = mask.detach().cpu()
                 
-                self.logger.log(f"Inference output shape: {mask_cpu.shape}, dtype: {mask_cpu.dtype}")
-                print(f"Inference output shape: {mask_cpu.shape}, dtype: {mask_cpu.dtype}")
+                # ✅ MINIMAL LOGGING for parallel performance
+                # self.logger.log(f"Inference output shape: {mask_cpu.shape}, dtype: {mask_cpu.dtype}")
+                # print(f"Inference output shape: {mask_cpu.shape}, dtype: {mask_cpu.dtype}")
                 
                 # Explicit GPU memory cleanup - only delete if variables exist
                 try:
@@ -388,7 +432,7 @@ class BiRefNetSegmenter:
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
                     # torch.cuda.synchronize()
-                    
+                
                 raise
 
     def _run_batch_inference(self, batch_tensor: torch.Tensor) -> torch.Tensor:
@@ -497,17 +541,14 @@ class BiRefNetSegmenter:
             Binary mannequin mask
         """
         try:
-            # Convert tensor to numpy with proper type handling
-            # Tensor should already be on CPU from inference functions
-            if mask_tensor.dtype == torch.float16:
-                mask_np = mask_tensor.float().numpy()
-            else:
-                mask_np = mask_tensor.numpy()
+            # Convert to numpy and ensure proper format
+            mask_np = mask_tensor.numpy()
             
-            self.logger.log(f"Initial mask shape: {mask_np.shape}, dtype: {mask_np.dtype}")
-            print(f"Initial mask shape: {mask_np.shape}, dtype: {mask_np.dtype}")
+            # ✅ MINIMAL LOGGING for parallel performance
+            # self.logger.log(f"Initial mask shape: {mask_np.shape}, dtype: {mask_np.dtype}")
+            # print(f"Initial mask shape: {mask_np.shape}, dtype: {mask_np.dtype}")
             
-            # Ensure 2D mask
+            # Remove extra dimensions
             while mask_np.ndim > 2:
                 mask_np = mask_np.squeeze()
             
@@ -516,8 +557,9 @@ class BiRefNetSegmenter:
                 print(f"Warning: Unexpected mask dimensions: {mask_np.shape}")
                 return np.zeros(img_shape, dtype=bool)
             
-            self.logger.log(f"Processed mask shape: {mask_np.shape}")
-            print(f"Processed mask shape: {mask_np.shape}")
+            # ✅ MINIMAL LOGGING for parallel performance
+            # self.logger.log(f"Processed mask shape: {mask_np.shape}")
+            # print(f"Processed mask shape: {mask_np.shape}")
             
             # Resize to original image shape
             if mask_np.shape != img_shape:
@@ -531,13 +573,13 @@ class BiRefNetSegmenter:
             # Binarize mask
             binary_mask = mask_resized > self.mask_threshold
             
-            msg1 = f"Final mask shape: {mask_resized.shape}, threshold: {self.mask_threshold}"
-            self.logger.log(msg1)
-            print(msg1)
-            
-            msg2 = f"Mask pixels above threshold: {binary_mask.sum()}"
-            self.logger.log(msg2)
-            print(msg2)
+            # ✅ MINIMAL LOGGING for parallel performance
+            # msg1 = f"Final mask shape: {mask_resized.shape}, threshold: {self.mask_threshold}"
+            # msg2 = f"Final mask: {np.sum(binary_mask)} mannequin pixels / {binary_mask.size} total"
+            # self.logger.log(msg1)
+            # print(msg1)
+            # self.logger.log(msg2)
+            # print(msg2)
             
             return binary_mask
             
@@ -680,41 +722,15 @@ class BiRefNetSegmenter:
         Returns:
             Processed image with mannequins removed
         """
-        # ✅ FIXED: Generate unique filename per request to avoid race conditions
-        unique_id = uuid.uuid4().hex
-        thread_id = threading.current_thread().ident
-        fname = os.path.join(self.vis_save_dir, f"temp_image_{thread_id}_{unique_id}.jpg")
-        
-        try:
-            # Download image
-            response = requests.get(image_url, timeout=15)
-            response.raise_for_status()
-            with open(fname, "wb") as f:
-                f.write(response.content)
-            
-            img = cv2.imread(fname)
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            if img is None:
-                raise ValueError("Failed to load the image!")
-                
-            msg = f"Downloaded and loaded image from URL: {image_url}"
-            self.logger.log(msg)
-            print(msg)
-            
-        except Exception as e:
-            msg = f"Image download/load error: {e} (URL: {image_url})"
-            self.logger.log(msg)
-            print(msg)
-            if os.path.exists(fname):
-                os.remove(fname)
+        # ✅ USE SHARED CACHE - No more redundant downloads or file I/O!
+        img = _get_cached_image(image_url)
+        if img is None:
             return None
 
         # Preprocess image for BiRefNet
         img_tensor = self._preprocess_image(img)
         
-        # Run inference
-        self.logger.log("Running BiRefNet inference...")
-        print("Running BiRefNet inference...")
+        # Run inference (minimal logging for parallel performance)
         mask_tensor = self._run_inference(img_tensor)
         
         # Extract mannequin masks
@@ -759,10 +775,8 @@ class BiRefNetSegmenter:
             plt.tight_layout()
             plt.show()
 
-        # Cleanup
-        if os.path.exists(fname):
-            os.remove(fname)
-            
+        # Cleanup - no files to remove since we use shared cache
+        
         # GPU memory cleanup after processing (NO SYNCHRONIZE for parallel execution!)
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
@@ -774,19 +788,14 @@ class BiRefNetSegmenter:
             self._image_counter = 0
         self._image_counter += 1
         
-        # Every 10 images, do aggressive cleanup (NO SYNCHRONIZE for parallel execution!)
-        if self._image_counter % 10 == 0:
-            self.logger.log(f"🧹 Aggressive memory cleanup after {self._image_counter} images")
-            print(f"🧹 Aggressive memory cleanup after {self._image_counter} images")
+        # Every 50 images, do aggressive cleanup (reduced frequency for performance)
+        if self._image_counter % 50 == 0:
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
                 torch.cuda.ipc_collect()
                 # torch.cuda.synchronize()  # ❌ REMOVED: Blocks parallel execution!
             gc.collect()
             
-        msg = f"Finished processing image from URL: {image_url}"
-        self.logger.log(msg)
-        print(msg)
         return cleaned_img
 
     def process_image_array(self, img: np.ndarray, plot: bool = True) -> np.ndarray:
