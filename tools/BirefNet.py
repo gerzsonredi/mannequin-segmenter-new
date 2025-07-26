@@ -21,12 +21,6 @@ from functools import lru_cache
 from io import BytesIO
 import boto3
 import tempfile
-from torchvision import transforms as T
-from skimage.morphology import binary_opening, disk, binary_closing, remove_small_objects, binary_erosion, binary_dilation
-from scipy.ndimage import label, binary_fill_holes, distance_transform_edt, sobel
-from scipy.ndimage.morphology import binary_dilation as scipy_binary_dilation
-from scipy.spatial.distance import cdist
-from scipy.optimize import minimize_scalar
 import traceback
 
 # Import utilities from tools package
