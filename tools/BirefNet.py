@@ -792,8 +792,9 @@ class BiRefNetSegmenter:
         if self._image_counter % 50 == 0:
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-                torch.cuda.ipc_collect()
-                # torch.cuda.synchronize()  # ❌ REMOVED: Blocks parallel execution!
+                # Only call ipc_collect occasionally as it's expensive
+                if self._image_counter % 100 == 0:
+                    torch.cuda.ipc_collect()
             gc.collect()
             
         return cleaned_img
