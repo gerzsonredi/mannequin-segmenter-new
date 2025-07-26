@@ -1,0 +1,51 @@
+{
+  "timestamp": "2025-07-26T12:37:58.594547",
+  "test_config": {
+    "concurrent_batches": 2,
+    "batch_size": 5,
+    "total_images": 10,
+    "timeout": 1200
+  },
+  "results": {
+    "total_batches": 2,
+    "successful_batches": 2,
+    "batch_success_rate": 1.0,
+    "total_duration_seconds": 9.082027912139893
+  },
+  "raw_results": [
+    {
+      "batch_id": 2,
+      "success": true,
+      "response_time_ms": 7543.556213378906,
+      "status_code": 200,
+      "batch_size": 5,
+      "successful_count": 5,
+      "failed_count": 0,
+      "visualization_urls": [
+        "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_d87e10cb-9f67-45d4-adae-5aa9d29a05b1_0.jpg",
+        "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_9d4b0d61-dcf8-4e46-a607-87a9fed0e070_1.jpg",
+        "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_f2a21dd1-3ed0-4425-90f9-33d4f801840a_2.jpg",
+        "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_64f8e7b4-8da3-4fad-a4dd-d961b302d175_3.jpg",
+        "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_8f8db50b-ce40-4375-8ac6-f5e10374f07d_4.jpg"
+      ],
+      "timestamp": "2025-07-26T12:37:57.054669"
+    },
+    {
+      "batch_id": 1,
+      "success": true,
+      "response_time_ms": 9080.348014831543,
+      "status_code": 200,
+      "batch_size": 5,
+      "successful_count": 5,
+      "failed_count": 0,
+      "visualization_urls": [
+        "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_2f62f071-7e49-427d-a3d7-5b3b0d8be8ac_0.jpg",
+        "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_36a62726-d7fd-4680-81a2-df880bb4774e_1.jpg",
+        "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_18e047ae-7cf8-4098-8523-3288f6b77127_2.jpg",
+        "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_07ef4783-4449-401b-8f34-65060d0f1a28_3.jpg",
+        "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_07bade10-ea36-48bd-bf47-61d270595e77_4.jpg"
+      ],
+      "timestamp": "2025-07-26T12:37:58.592325"
+    }
+  ]
+}

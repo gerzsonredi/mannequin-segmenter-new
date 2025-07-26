@@ -6,11 +6,11 @@ import os
 bind = "0.0.0.0:5001"
 backlog = 2048
 
-# Worker processes - OPTIMIZED FOR MODEL POOL ARCHITECTURE  
-# Strategy: 1 worker + 20 threads + 10 model pool = max 20 concurrent requests per instance
+# Worker processes - OPTIMIZED FOR 30 MODEL POOL ARCHITECTURE  
+# Strategy: 1 worker + 40 threads + 30 model pool = max 40 concurrent requests per instance
 workers = 1  # CRITICAL: Single worker to avoid multiple model loading on GPU
 worker_class = "sync"  # Sync worker for Flask  
-threads = 20  # Aligned with Cloud Run concurrency=20 and model pool size=10
+threads = 40  # Aligned with 30 model pool size for optimal utilization
 worker_connections = 20  # Adequate for async processing
 timeout = 600  # 10 minutes for model inference
 keepalive = 5

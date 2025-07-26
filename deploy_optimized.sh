@@ -49,7 +49,7 @@ gcloud run deploy "$SERVICE_NAME" \
     --gpu 1 \
     --gpu-type nvidia-l4 \
     --timeout 300 \
-    --concurrency 20 \
+    --concurrency 40 \
     --min-instances 3 \
     --max-instances 3 \
     --cpu-boost \

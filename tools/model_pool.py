@@ -260,7 +260,7 @@ def get_global_model_pool() -> BiRefNetModelPool:
         with _pool_lock:
             if _global_model_pool is None:  # Double-check pattern
                 _global_model_pool = BiRefNetModelPool(
-                    pool_size=10,
+                    pool_size=30,  # ✅ INCREASED FROM 10 TO 30 MODELS
                     model_path="artifacts/20250703_190222/checkpoint.pt",  # ✅ CUSTOM TRAINED MODEL
                     model_name="zhengpeng7/BiRefNet",
                     precision="fp16",

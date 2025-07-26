@@ -1,0 +1,103 @@
+{
+  "timestamp": "2025-07-26T12:55:03.796499",
+  "test_results": {
+    "config": {
+      "batch_size": 15,
+      "concurrent_batches": 4,
+      "total_images": 5,
+      "image_set": "mixed",
+      "upload_s3": false
+    },
+    "summary": {
+      "total_duration": 47.86373591423035,
+      "successful_batches": 1,
+      "failed_batches": 0,
+      "total_successful_images": 3,
+      "total_failed_images": 2,
+      "overall_throughput": 0.06267793231551888,
+      "avg_batch_throughput": 0.06849784988301881
+    },
+    "batch_stats": {
+      "avg_duration": 43.79699516296387,
+      "median_duration": 43.79699516296387,
+      "min_duration": 43.79699516296387,
+      "max_duration": 43.79699516296387
+    },
+    "batches": [
+      {
+        "batch_id": 1,
+        "success": true,
+        "duration": 43.79699516296387,
+        "successful_count": 3,
+        "failed_count": 2,
+        "batch_size": 5,
+        "throughput": 0.06849784988301881,
+        "response": {
+          "batch_size": 5,
+          "failed_count": 2,
+          "input_urls": [
+            "https://images.unsplash.com/photo-1567401893414-76b7b1e5a7a5?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
+            "https://images.unsplash.com/photo-1544966503-7cc5ac882d5f?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80",
+            "https://images.unsplash.com/photo-1594736797933-d0601ba2f4b7?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+            "https://images.unsplash.com/photo-1558769132-cb1aea458c5e?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80",
+            "https://images.unsplash.com/photo-1574015974293-817f0ebebb74?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80"
+          ],
+          "successful_count": 3,
+          "visualization_urls": [
+            "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_d8eaaef0-7235-4ad6-98fe-6b6e0dfb1fb1_0.jpg",
+            "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_914ec2fa-192f-434d-bba2-3786daf8f2b7_1.jpg",
+            "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_a8cb41cc-84de-4c92-bb04-e68a11345905_2.jpg"
+          ]
+        }
+      }
+    ],
+    "monitoring": [
+      {
+        "timestamp": 1753527293.639586,
+        "datetime": "2025-07-26T12:54:53.639586",
+        "active_requests": 0,
+        "available_models": 10,
+        "gpu_memory": {
+          "allocated_gb": 4.251337051391602,
+          "max_allocated_gb": 4.667612075805664,
+          "reserved_gb": 4.701171875
+        },
+        "initialized": true,
+        "max_active_requests": 0,
+        "pool_size": 10,
+        "total_requests": 0
+      },
+      {
+        "timestamp": 1753527298.716118,
+        "datetime": "2025-07-26T12:54:58.716118",
+        "active_requests": 1,
+        "available_models": 9,
+        "gpu_memory": {
+          "allocated_gb": 4.276605606079102,
+          "max_allocated_gb": 5.997380256652832,
+          "reserved_gb": 4.408203125
+        },
+        "initialized": true,
+        "max_active_requests": 5,
+        "pool_size": 10,
+        "total_requests": 5
+      }
+    ],
+    "final_pool_stats": {
+      "pool_statistics": {
+        "active_requests": 0,
+        "available_models": 10,
+        "gpu_memory": {
+          "allocated_gb": 4.275140762329102,
+          "max_allocated_gb": 5.997380256652832,
+          "reserved_gb": 4.408203125
+        },
+        "initialized": true,
+        "max_active_requests": 5,
+        "pool_size": 10,
+        "total_requests": 5
+      },
+      "timestamp": "2025-07-26T10:55:03.850278"
+    }
+  }
+}
