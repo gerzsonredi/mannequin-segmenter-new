@@ -24,9 +24,10 @@ except ImportError:
     from logger import AppLogger
     from env_utils import get_env_variable
 
-# ⚡ SPEED: Global cache for image downloads
-_image_download_cache = {}
-_cache_lock = threading.Lock()
+# ⚡ SPEED: Global cache for image downloads (DISABLED in production)
+ENABLE_IMAGE_CACHE = os.getenv('ENVIRONMENT', 'development').lower() != 'production'
+_image_download_cache = {} if ENABLE_IMAGE_CACHE else None
+_cache_lock = threading.Lock() if ENABLE_IMAGE_CACHE else None
 
 class DeepLabV3MobileViTSegmenter:
     """
@@ -204,38 +205,54 @@ class DeepLabV3MobileViTSegmenter:
     def _preprocess_image(self, image_url: str) -> torch.Tensor:
         """Download and preprocess image with SPEED optimizations + caching"""
         try:
-            # ⚡ SPEED: Check cache first
-            global _image_download_cache, _cache_lock
+            # ⚡ SPEED: Check cache first (only in development)
+            global _image_download_cache, _cache_lock, ENABLE_IMAGE_CACHE
             
-            with _cache_lock:
-                if image_url in _image_download_cache:
-                    print("   💾 Using cached image")
-                    cached_data = _image_download_cache[image_url]
-                    image = Image.open(io.BytesIO(cached_data)).convert('RGB')
-                else:
-                    print("   🌐 Downloading image...")
-                    # ⚡ SPEED: Fast image download
-                    import requests
-                    session = requests.Session()
-                    session.headers.update({
-                        'Accept-Encoding': 'gzip, deflate',
-                        'Connection': 'keep-alive',
-                        'User-Agent': 'mannequin-segmenter/1.0'
-                    })
-                    
-                    response = session.get(image_url, timeout=10, stream=True)  # Reduced timeout
-                    response.raise_for_status()
-                    
-                    # Cache the raw image data
-                    image_data = response.content
-                    _image_download_cache[image_url] = image_data
-                    
-                    # Limit cache size (keep only last 5 images)
-                    if len(_image_download_cache) > 5:
-                        oldest_key = next(iter(_image_download_cache))
-                        del _image_download_cache[oldest_key]
-                    
-                    image = Image.open(io.BytesIO(image_data)).convert('RGB')
+            if ENABLE_IMAGE_CACHE and _image_download_cache is not None and _cache_lock is not None:
+                with _cache_lock:
+                    if image_url in _image_download_cache:
+                        print("   💾 Using cached image (development only)")
+                        cached_data = _image_download_cache[image_url]
+                        image = Image.open(io.BytesIO(cached_data)).convert('RGB')
+                    else:
+                        print("   🌐 Downloading image (caching enabled)...")
+                        # ⚡ SPEED: Fast image download
+                        import requests
+                        session = requests.Session()
+                        session.headers.update({
+                            'Accept-Encoding': 'gzip, deflate',
+                            'Connection': 'keep-alive',
+                            'User-Agent': 'mannequin-segmenter/1.0'
+                        })
+                        
+                        response = session.get(image_url, timeout=10, stream=True)  # Reduced timeout
+                        response.raise_for_status()
+                        
+                        # Cache the raw image data
+                        image_data = response.content
+                        _image_download_cache[image_url] = image_data
+                        
+                        # Limit cache size (keep only last 5 images)
+                        if len(_image_download_cache) > 5:
+                            oldest_key = next(iter(_image_download_cache))
+                            del _image_download_cache[oldest_key]
+                        
+                        image = Image.open(io.BytesIO(image_data)).convert('RGB')
+            else:
+                # Production mode: Always download fresh (no cache)
+                print("   🌐 Downloading image (production - no cache)...")
+                import requests
+                session = requests.Session()
+                session.headers.update({
+                    'Accept-Encoding': 'gzip, deflate',
+                    'Connection': 'keep-alive',
+                    'User-Agent': 'mannequin-segmenter/1.0'
+                })
+                
+                response = session.get(image_url, timeout=10, stream=True)
+                response.raise_for_status()
+                
+                image = Image.open(io.BytesIO(response.content)).convert('RGB')
             
             # ⚡ SPEED: Direct resize with PIL (faster than AutoImageProcessor for resize)
             image_resized = image.resize((self.image_size, self.image_size), Image.BILINEAR)
