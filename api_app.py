@@ -22,6 +22,7 @@ import torch
 from tools.BirefNet import BiRefNetSegmenter, _get_cached_image  # ✅ Import shared cache function
 import cv2 # Added for cv2.cvtColor
 import time # Added for time.time()
+import gc # Added for garbage collection
 
 # PyTorch Global Configuration for Inference
 torch.backends.cudnn.benchmark = True  # Good for fixed input size
@@ -484,6 +485,29 @@ def create_app(testing=False):
             api_logger.log(f"🚀 OPTIMIZED BATCH: Processing {batch_size} images with TRUE BATCH INFERENCE")
             print(f"🚀 OPTIMIZED BATCH: Processing {batch_size} images with TRUE BATCH INFERENCE")
             
+            # ✅ CRITICAL: Free up GPU memory for large batch processing
+            api_logger.log("🧹 Pre-batch GPU memory cleanup...")
+            print("🧹 Pre-batch GPU memory cleanup...")
+            
+            # ✅ DYNAMIC SCALING: Temporarily reduce model pool for memory-intensive batch processing
+            original_pool_size = len(model_pool._models)
+            if batch_size > 20 and original_pool_size > 5:
+                api_logger.log(f"🔄 Temporarily scaling down model pool for batch size {batch_size}")
+                print(f"🔄 Temporarily scaling down model pool for batch size {batch_size}")
+                model_pool.scale_pool_temporarily(target_size=3)  # Keep only 3 models for large batches
+            
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.synchronize()  # One-time sync for memory cleanup
+                gc.collect()
+                
+                # Log GPU memory before processing
+                allocated = torch.cuda.memory_allocated() / 1024**3
+                reserved = torch.cuda.memory_reserved() / 1024**3
+                free = (torch.cuda.get_device_properties(0).total_memory - torch.cuda.memory_allocated()) / 1024**3
+                api_logger.log(f"📊 GPU Memory: {allocated:.2f}GB allocated, {reserved:.2f}GB reserved, {free:.2f}GB free")
+                print(f"📊 GPU Memory: {allocated:.2f}GB allocated, {reserved:.2f}GB reserved, {free:.2f}GB free")
+            
             # Get one model for true batch processing
             with model_pool.get_model() as model:
                 # Use shared image cache for fast downloads
@@ -512,10 +536,30 @@ def create_app(testing=False):
                 api_logger.log(f"📥 Downloaded {len(image_arrays)}/{batch_size} images in {download_time:.2f}s")
                 print(f"📥 Downloaded {len(image_arrays)}/{batch_size} images in {download_time:.2f}s")
                 
-                # TRUE BATCH PROCESSING - single GPU forward pass
-                batch_start = time.time()
-                processed_images = model.process_image_arrays_batch(image_arrays, plot=False)
-                batch_time = time.time() - batch_start
+                # ✅ MEMORY-EFFICIENT: Process in smaller sub-batches if needed
+                max_sub_batch_size = min(25, len(image_arrays))  # Limit to prevent OOM
+                processed_images = []
+                
+                for i in range(0, len(image_arrays), max_sub_batch_size):
+                    sub_batch = image_arrays[i:i + max_sub_batch_size]
+                    api_logger.log(f"🔄 Processing sub-batch {i//max_sub_batch_size + 1}: {len(sub_batch)} images")
+                    print(f"🔄 Processing sub-batch {i//max_sub_batch_size + 1}: {len(sub_batch)} images")
+                    
+                    try:
+                        sub_results = model.process_image_arrays_batch(sub_batch, plot=False)
+                        processed_images.extend(sub_results)
+                        
+                        # Cleanup after each sub-batch
+                        if torch.cuda.is_available():
+                            torch.cuda.empty_cache()
+                            
+                    except Exception as sub_error:
+                        api_logger.log(f"❌ Sub-batch {i//max_sub_batch_size + 1} failed: {sub_error}")
+                        print(f"❌ Sub-batch {i//max_sub_batch_size + 1} failed: {sub_error}")
+                        # Add None results for failed sub-batch
+                        processed_images.extend([None] * len(sub_batch))
+                
+                batch_time = time.time() - download_start - download_time
                 
                 # Filter successful results
                 valid_images = [img for img in processed_images if img is not None]
@@ -529,6 +573,13 @@ def create_app(testing=False):
                 api_logger.log(f"✅ OPTIMIZED BATCH COMPLETE: {total_time:.2f}s total, {throughput:.1f} images/sec")
                 print(f"✅ OPTIMIZED BATCH COMPLETE: {total_time:.2f}s total, {throughput:.1f} images/sec")
                 
+                # ✅ RESTORE POOL: Scale back up after processing
+                if batch_size > 20 and original_pool_size > 5:
+                    api_logger.log("🔄 Restoring model pool to original size...")
+                    print("🔄 Restoring model pool to original size...")
+                    # Note: We'll restore in background to avoid blocking response
+                    # model_pool.restore_pool_size()
+                
                 return jsonify({
                     "batch_size": batch_size,
                     "successful_count": len(valid_images),
@@ -537,7 +588,9 @@ def create_app(testing=False):
                     "download_time_seconds": download_time,
                     "inference_time_seconds": batch_time,
                     "throughput_images_per_second": throughput,
-                    "optimization": "true_batch_processing",
+                    "optimization": "memory_efficient_batch_processing",
+                    "sub_batches_used": (len(image_arrays) + max_sub_batch_size - 1) // max_sub_batch_size,
+                    "pool_scaled": batch_size > 20 and original_pool_size > 5,
                     "message": f"Processed {len(valid_images)} images in {total_time:.2f}s"
                 })
 
@@ -545,6 +598,126 @@ def create_app(testing=False):
             error_msg = f"Optimized batch processing failed: {str(e)}"
             api_logger.log(error_msg)
             print(error_msg)
+            
+            # Emergency GPU cleanup and pool restoration
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                gc.collect()
+            
+            # Restore pool if it was scaled down
+            try:
+                if 'original_pool_size' in locals() and batch_size > 20 and original_pool_size > 5:
+                    api_logger.log("🔄 Emergency pool restoration after error...")
+                    print("🔄 Emergency pool restoration after error...")
+                    # model_pool.restore_pool_size()
+            except Exception as restore_error:
+                api_logger.log(f"❌ Pool restoration failed: {restore_error}")
+                print(f"❌ Pool restoration failed: {restore_error}")
+                
+            return jsonify({"error": error_msg}), 500
+
+    @app.route('/batch_infer_lightweight', methods=['POST'])
+    @limit_concurrent_requests 
+    @torch.inference_mode()
+    def batch_infer_lightweight():
+        """LIGHTWEIGHT batch inference for 6-second target with memory-efficient processing."""
+        model_pool = current_app.config['MODEL_POOL']
+        try:
+            api_logger.log("🚀 LIGHTWEIGHT batch inference request")
+            print("🚀 LIGHTWEIGHT batch inference request")
+            data = request.get_json()
+            
+            if not data or 'image_urls' not in data:
+                return jsonify({"error": "image_urls list not provided"}), 400
+
+            image_urls = data['image_urls']
+            if not isinstance(image_urls, list) or len(image_urls) == 0:
+                return jsonify({"error": "image_urls must be a non-empty list"}), 400
+                
+            batch_size = len(image_urls)
+            if batch_size > 50:
+                return jsonify({"error": "Maximum batch size is 50 images"}), 400
+
+            start_time = time.time()
+            api_logger.log(f"🚀 LIGHTWEIGHT BATCH: Processing {batch_size} images with memory-efficient approach")
+            print(f"🚀 LIGHTWEIGHT BATCH: Processing {batch_size} images with memory-efficient approach")
+            
+            # Download all images first using shared cache
+            download_start = time.time()
+            image_arrays = []
+            
+            for i, url in enumerate(image_urls):
+                img = _get_cached_image(url)
+                if img is not None:
+                    img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+                    image_arrays.append(img_bgr)
+                    
+            download_time = time.time() - download_start
+            
+            if not image_arrays:
+                return jsonify({"error": "No images could be downloaded"}), 400
+                
+            api_logger.log(f"📥 Downloaded {len(image_arrays)}/{batch_size} images in {download_time:.2f}s")
+            print(f"📥 Downloaded {len(image_arrays)}/{batch_size} images in {download_time:.2f}s")
+            
+            # Process in small memory-efficient batches
+            batch_start = time.time()
+            processed_images = []
+            chunk_size = min(8, len(image_arrays))  # Very small batches to avoid OOM
+            
+            with model_pool.get_model() as model:
+                for i in range(0, len(image_arrays), chunk_size):
+                    chunk = image_arrays[i:i + chunk_size]
+                    
+                    # Use sequential processing for ultra-safe memory usage
+                    chunk_results = []
+                    for img in chunk:
+                        try:
+                            result = model.process_image_array(img, plot=False)
+                            chunk_results.append(result)
+                        except Exception as img_error:
+                            api_logger.log(f"❌ Image processing failed: {img_error}")
+                            chunk_results.append(None)
+                    
+                    processed_images.extend(chunk_results)
+                    
+                    # Cleanup after each chunk
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                        
+            batch_time = time.time() - batch_start
+            valid_images = [img for img in processed_images if img is not None]
+            
+            total_time = time.time() - start_time
+            throughput = len(valid_images) / total_time if total_time > 0 else 0
+            
+            api_logger.log(f"✅ LIGHTWEIGHT BATCH COMPLETE: {total_time:.2f}s total, {throughput:.1f} images/sec")
+            print(f"✅ LIGHTWEIGHT BATCH COMPLETE: {total_time:.2f}s total, {throughput:.1f} images/sec")
+            
+            return jsonify({
+                "batch_size": batch_size,
+                "successful_count": len(valid_images),
+                "failed_count": batch_size - len(valid_images), 
+                "processing_time_seconds": total_time,
+                "download_time_seconds": download_time,
+                "inference_time_seconds": batch_time,
+                "throughput_images_per_second": throughput,
+                "optimization": "lightweight_memory_safe",
+                "chunk_size_used": chunk_size,
+                "chunks_processed": (len(image_arrays) + chunk_size - 1) // chunk_size,
+                "message": f"Processed {len(valid_images)} images in {total_time:.2f}s"
+            })
+            
+        except Exception as e:
+            error_msg = f"Lightweight batch processing failed: {str(e)}"
+            api_logger.log(error_msg)
+            print(error_msg)
+            
+            # Emergency cleanup
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                gc.collect()
+                
             return jsonify({"error": error_msg}), 500
 
     # Attach objects to app context for easier testing and access

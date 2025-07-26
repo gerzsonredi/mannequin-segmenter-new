@@ -72,6 +72,7 @@ class BatchTestConfig:
         self.monitor_gpu_memory = True
         self.stats_interval = 5  # seconds
         self.use_optimized_endpoint = False # ✅ NEW: Optimized endpoint flag
+        self.use_lightweight_endpoint = False # ✅ NEW: Lightweight endpoint flag
     
     def __str__(self):
         optimization_info = ""
@@ -83,6 +84,15 @@ class BatchTestConfig:
    - Target: Process {self.total_images} images in ≤6 seconds
    - CUDA streams + memory layout optimization
    - torch.compile enabled for maximum performance
+"""
+        elif self.use_lightweight_endpoint:
+            optimization_info = f"""
+⚡ LIGHTWEIGHT MODE: MEMORY-SAFE PROCESSING
+   - Using /batch_infer_lightweight endpoint
+   - Small sequential chunks to avoid GPU memory issues
+   - Target: Process {self.total_images} images reliably
+   - Conservative memory usage
+   - Ultra-safe processing for large batches
 """
         
         return f"""
@@ -324,6 +334,14 @@ async def run_batch_test(config: BatchTestConfig) -> Dict[str, Any]:
                 optimized_result = await test_optimized_batch_endpoint(session, all_images, config)
                 results = [optimized_result]
                 
+            elif config.use_lightweight_endpoint:
+                print(f"⚡ Using LIGHTWEIGHT ENDPOINT with single large batch of {len(all_images)} images")
+                print("   This tests LIGHTWEIGHT BATCH PROCESSING for memory-safe processing.")
+                
+                # Test lightweight endpoint with all images in one batch
+                lightweight_result = await test_lightweight_batch_endpoint(session, all_images, config)
+                results = [lightweight_result]
+                
             else:
                 # Standard multi-batch testing
                 print(f"🏊‍♂️ Using STANDARD ENDPOINT with {len(batches)} batches")
@@ -424,7 +442,8 @@ async def run_batch_test(config: BatchTestConfig) -> Dict[str, Any]:
                 "total_images": config.total_images,
                 "image_set": config.image_set,
                 "upload_s3": config.upload_s3,
-                "use_optimized_endpoint": config.use_optimized_endpoint
+                "use_optimized_endpoint": config.use_optimized_endpoint,
+                "use_lightweight_endpoint": config.use_lightweight_endpoint
             },
             "summary": {
                 "total_duration": total_test_duration,
@@ -526,6 +545,76 @@ async def test_optimized_batch_endpoint(session: aiohttp.ClientSession, image_ur
             "error": str(e)
         }
 
+async def test_lightweight_batch_endpoint(session: aiohttp.ClientSession, image_urls: List[str], config: BatchTestConfig) -> Dict[str, Any]:
+    """Test the lightweight batch endpoint for memory-safe processing."""
+    print(f"⚡ Testing LIGHTWEIGHT BATCH ENDPOINT with {len(image_urls)} images")
+    
+    start_time = time.time()
+    
+    try:
+        payload = {"image_urls": image_urls}
+        timeout = aiohttp.ClientTimeout(total=config.timeout_per_batch)
+        
+        async with session.post(f"{BASE_URL}/batch_infer_lightweight", json=payload, timeout=timeout) as response:
+            end_time = time.time()
+            duration = end_time - start_time
+            
+            if response.status == 200:
+                result = await response.json()
+                
+                success_count = result.get("successful_count", 0)
+                total_time = result.get("processing_time_seconds", duration)
+                download_time = result.get("download_time_seconds", 0)
+                inference_time = result.get("inference_time_seconds", 0)
+                throughput = result.get("throughput_images_per_second", 0)
+                chunk_size = result.get("chunk_size_used", 1)
+                chunks_processed = result.get("chunks_processed", 1)
+                
+                print(f"✅ LIGHTWEIGHT BATCH SUCCESS:")
+                print(f"   📊 Images: {success_count}/{len(image_urls)} successful")
+                print(f"   ⏱️  Total time: {total_time:.2f}s")
+                print(f"   📥 Download time: {download_time:.2f}s ({download_time/total_time*100:.1f}%)")
+                print(f"   🚀 Inference time: {inference_time:.2f}s ({inference_time/total_time*100:.1f}%)")
+                print(f"   📈 Throughput: {throughput:.1f} images/sec")
+                print(f"   🧩 Chunks: {chunks_processed} chunks of {chunk_size} images each")
+                print(f"   🎯 Target achieved: {'✅ YES' if total_time <= 6.0 else '❌ NO'} (6s target)")
+                
+                return {
+                    "status": "success",
+                    "duration": total_time,
+                    "download_time": download_time,
+                    "inference_time": inference_time,
+                    "throughput": throughput,
+                    "success_count": success_count,
+                    "target_achieved": total_time <= 6.0,
+                    "optimization": "lightweight_memory_safe",
+                    "chunk_size": chunk_size,
+                    "chunks_processed": chunks_processed,
+                    "response": result
+                }
+            else:
+                error_text = await response.text()
+                print(f"❌ LIGHTWEIGHT BATCH FAILED: HTTP {response.status}")
+                print(f"   Error: {error_text}")
+                
+                return {
+                    "status": "error",
+                    "duration": duration,
+                    "http_status": response.status,
+                    "error": error_text
+                }
+                
+    except Exception as e:
+        end_time = time.time()
+        duration = end_time - start_time
+        
+        print(f"❌ LIGHTWEIGHT BATCH EXCEPTION: {e}")
+        return {
+            "status": "exception", 
+            "duration": duration,
+            "error": str(e)
+        }
+
 def create_config_from_args() -> BatchTestConfig:
     """Create configuration from command line arguments."""
     parser = argparse.ArgumentParser(description="Batch Processing Optimizer Test")
@@ -557,6 +646,8 @@ def create_config_from_args() -> BatchTestConfig:
                        help="Disable pool stats monitoring")
     parser.add_argument("--optimized", action="store_true",
                        help="Use optimized batch endpoint for 6-second target")
+    parser.add_argument("--lightweight", action="store_true", 
+                       help="Use lightweight endpoint for memory-safe processing")
     
     args = parser.parse_args()
     
@@ -573,6 +664,7 @@ def create_config_from_args() -> BatchTestConfig:
     config.save_results = not args.no_save
     config.monitor_pool_stats = not args.no_monitoring
     config.use_optimized_endpoint = getattr(args, 'optimized', False)  # ✅ NEW: Optimized endpoint flag
+    config.use_lightweight_endpoint = getattr(args, 'lightweight', False)  # ✅ NEW: Lightweight endpoint flag
     
     return config
 

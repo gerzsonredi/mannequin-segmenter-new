@@ -242,6 +242,93 @@ class BiRefNetModelPool:
             self.logger.log("✅ Model pool cleanup completed")
             print("✅ Model pool cleanup completed")
 
+    def scale_pool_temporarily(self, target_size: int = 5):
+        """
+        Temporarily reduce pool size for memory-intensive operations.
+        
+        Args:
+            target_size: Target number of models to keep active
+        """
+        if not self._initialized or target_size >= len(self._models):
+            return
+        
+        with self._pool_lock:
+            current_size = len(self._models)
+            models_to_remove = current_size - target_size
+            
+            self.logger.log(f"🔄 Scaling down pool: {current_size} → {target_size} models")
+            print(f"🔄 Scaling down pool: {current_size} → {target_size} models")
+            
+            # Remove models from the end of the list (they should be in queue)
+            models_to_delete = self._models[target_size:]
+            self._models = self._models[:target_size]
+            
+            # Clear the queue and rebuild with remaining models
+            # Clear queue
+            while not self._model_queue.empty():
+                try:
+                    self._model_queue.get_nowait()
+                except queue.Empty:
+                    break
+            
+            # Re-add remaining models to queue
+            for model in self._models:
+                self._model_queue.put(model)
+            
+            # Delete removed models to free GPU memory
+            for model in models_to_delete:
+                del model
+            
+            # Force GPU memory cleanup
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.synchronize()
+                gc.collect()
+                
+                # Log memory after cleanup
+                allocated = torch.cuda.memory_allocated() / 1024**3
+                reserved = torch.cuda.memory_reserved() / 1024**3
+                self.logger.log(f"📊 After scaling: {allocated:.2f}GB allocated, {reserved:.2f}GB reserved")
+                print(f"📊 After scaling: {allocated:.2f}GB allocated, {reserved:.2f}GB reserved")
+            
+            self.logger.log(f"✅ Pool scaled down: removed {len(models_to_delete)} models")
+            print(f"✅ Pool scaled down: removed {len(models_to_delete)} models")
+    
+    def restore_pool_size(self):
+        """Restore pool to original size after temporary scaling."""
+        if not self._initialized:
+            return
+            
+        original_size = self.pool_size
+        current_size = len(self._models)
+        
+        if current_size >= original_size:
+            return
+        
+        with self._pool_lock:
+            models_to_add = original_size - current_size
+            
+            self.logger.log(f"🔄 Restoring pool: {current_size} → {original_size} models")
+            print(f"🔄 Restoring pool: {current_size} → {original_size} models")
+            
+            # Add models back
+            for i in range(models_to_add):
+                try:
+                    model = BiRefNetSegmenter(**self.model_kwargs)
+                    self._models.append(model)
+                    self._model_queue.put(model)
+                    
+                    self.logger.log(f"📦 Restored model {current_size + i + 1}/{original_size}")
+                    print(f"📦 Restored model {current_size + i + 1}/{original_size}")
+                    
+                except Exception as e:
+                    self.logger.log(f"❌ Failed to restore model {current_size + i + 1}: {e}")
+                    print(f"❌ Failed to restore model {current_size + i + 1}: {e}")
+                    break
+            
+            self.logger.log(f"✅ Pool restored to {len(self._models)} models")
+            print(f"✅ Pool restored to {len(self._models)} models")
+
 
 # Global model pool instance
 _global_model_pool: Optional[BiRefNetModelPool] = None
