@@ -235,12 +235,12 @@ async def lifespan(app: FastAPI):
     # Initialize the optimized BiRefNet segmenter
     try:
         inferencer = BiRefNetSegmenter(
-            model_path="artifacts/20250703_190222/checkpoint.pt",
-            model_name="zhengpeng7/BiRefNet",
+            model_path="models/birefnet_lite_mannequin_segmenter/checkpoint_20250726.pt",  # ✅ NEW BIREFNET_LITE MODEL FROM S3
+            model_name="zhengpeng7/BiRefNet_lite",  # ✅ Use BiRefNet_lite
             precision="fp16",
             mask_threshold=0.5
         )
-        api_logger.log("BiRefNet segmenter initialized successfully")
+        api_logger.log("BiRefNet_lite segmenter initialized successfully")
         
         # Start background batch worker
         asyncio.create_task(batch_worker())

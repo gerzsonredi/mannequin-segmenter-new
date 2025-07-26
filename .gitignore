@@ -199,3 +199,9 @@ remix-466614-e0eb921f6a64.json
 manual_labeling_result.xlsx
 # Remove EVF-SAM batch results
 # evfsam_batch_results.pdf
+
+# Exclude downloaded models and test results
+models/
+batch_test_results_*.json
+batch_load_test_results_*.json
+performance_comparison_*.json
