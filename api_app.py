@@ -51,6 +51,15 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Single Model initialization - BIREFNET_LITE ARCHITECTURE (BACK TO WORKING MODEL)
 print("🚀 Loading BiRefNet_lite Model globally (CPU optimized)...")
+
+# Add startup status tracking for Cloud Run readiness
+startup_status = {
+    "model_loading": True,
+    "model_loaded": False,
+    "ready": False,
+    "start_time": time.time()
+}
+
 try:
     from tools.BirefNet import BiRefNetSegmenter
     
@@ -73,10 +82,20 @@ try:
     print("🏗️ Architecture: 20 instances × 1 BiRefNet model = 20 parallel capacity")
     print(f"📊 Model size: {single_model.get_model_info()['parameters']:,} parameters")
     
+    # Update startup status
+    startup_status["model_loading"] = False
+    startup_status["model_loaded"] = True
+    startup_status["ready"] = True
+    startup_time = time.time() - startup_status["start_time"]
+    print(f"🚀 Startup completed in {startup_time:.2f}s")
+    
 except Exception as e:
     print(f"❌ Failed to load single model: {e}")
     single_model = None
     AMP_DTYPE = torch.float32
+    startup_status["model_loading"] = False
+    startup_status["model_loaded"] = False
+    startup_status["ready"] = False
 
 def log_cuda_memory(tag=""):
     """Log CUDA memory usage for debugging"""
@@ -125,13 +144,48 @@ def create_app(testing=False):
 
     @app.route('/health', methods=['GET'])
     def health():
-        api_logger.log("Health check request received")
-        return jsonify({
-            "status": "healthy",
+        """Fast health check endpoint for Cloud Run readiness probe."""
+        current_time = time.time()
+        uptime = current_time - startup_status["start_time"]
+        
+        # Always respond quickly, even during startup
+        health_data = {
+            "status": "healthy" if startup_status["ready"] else "starting",
             "timestamp": datetime.utcnow().isoformat(),
             "service": "mannequin-segmenter-api",
-            "version": "1.0.0"
-        }), 200
+            "version": "1.0.0",
+            "uptime_seconds": round(uptime, 2),
+            "startup_status": {
+                "model_loading": startup_status["model_loading"],
+                "model_loaded": startup_status["model_loaded"],
+                "ready": startup_status["ready"]
+            }
+        }
+        
+        # Log health check (but not too frequently to avoid spam)
+        if int(uptime) % 10 == 0 or not startup_status["ready"]:
+            api_logger.log(f"Health check: {health_data['status']} (uptime: {uptime:.1f}s)")
+        
+        # Return 200 even during startup to keep Cloud Run happy
+        # Cloud Run needs to see 200 responses to consider the container ready
+        return jsonify(health_data), 200
+
+    @app.route('/readiness', methods=['GET'])
+    def readiness():
+        """Kubernetes-style readiness probe - only returns 200 when fully ready."""
+        if startup_status["ready"] and single_model is not None:
+            return jsonify({
+                "ready": True,
+                "model_loaded": True,
+                "timestamp": datetime.utcnow().isoformat()
+            }), 200
+        else:
+            return jsonify({
+                "ready": False,
+                "model_loaded": startup_status["model_loaded"],
+                "model_loading": startup_status["model_loading"],
+                "timestamp": datetime.utcnow().isoformat()
+            }), 503  # Service Unavailable
     
     @app.route('/status', methods=['GET'])
     def status():
@@ -275,8 +329,12 @@ def create_app(testing=False):
     # @limit_concurrent_requests  # Temporarily disabled for testing
     @torch.inference_mode()
     def infer():
+        request_start_time = time.time()
+        timing_data = {}
+        
         try:
             # ⚡ SPEED: Fast request parsing
+            parse_start = time.time()
             print("Step 1: Fast request parsing...")
             data = request.get_json()
             if not data or 'image_url' not in data:
@@ -284,45 +342,65 @@ def create_app(testing=False):
 
             image_url = data['image_url']
             upload_s3 = data.get('upload_s3', True)
+            parse_time = time.time() - parse_start
+            timing_data['request_parsing'] = parse_time
+            print(f"   ✅ Request parsing: {parse_time:.3f}s")
 
             # ⚡ SPEED: Quick model check
+            model_check_start = time.time()
             if single_model is None:
                 return jsonify({"error": "model not loaded"}), 500
+            model_check_time = time.time() - model_check_start
+            timing_data['model_check'] = model_check_time
+            print(f"   ✅ Model check: {model_check_time:.3f}s")
+            
         except Exception as e:
             api_logger.log(f"Exception in /infer input handling: {str(e)}")
             print(f"Exception in /infer input handling: {str(e)}")
             return jsonify({"error": str(e)}), 500
         
         try:
-            print("Step 3: Starting fast inference...")
+            print("Step 2: Starting detailed inference timing...")
+            
             # ⚡ SPEED: Minimal logging for performance
-            start_inference = time.time()
+            inference_start = time.time()
             
             # Use single model for processing - simple and efficient for 1 concurrent request per instance
+            print(f"   📸 Processing image: {image_url}")
             vis = single_model.process_image_url(image_url, plot=False)
             
-            inference_time = time.time() - start_inference
-            print(f"Step 4: Fast inference completed in {inference_time:.2f}s")
+            inference_time = time.time() - inference_start
+            timing_data['model_inference'] = inference_time
+            print(f"   ✅ Model inference: {inference_time:.3f}s")
 
             if vis is None:
-                print(f"Error: Failed to process image from URL: {image_url}")
-                api_logger.log(f"Error: Failed to process image from URL: {image_url}")
+                error_msg = f"Error: Failed to process image from URL: {image_url}"
+                print(error_msg)
+                api_logger.log(error_msg)
                 return jsonify({"error": "Failed to process image"}), 500
 
             if upload_s3:
-                print("Step 5: About to convert and upload to S3")
-                api_logger.log("Step 5: About to convert and upload to S3")
+                s3_start = time.time()
+                print("Step 3: S3 upload process...")
+                api_logger.log("Step 3: About to convert and upload to S3")
+                
                 # Handle both PIL Image and numpy array
+                conversion_start = time.time()
                 if isinstance(vis, Image.Image):
                     vis_pil = vis
                     print("   ✅ Using PIL Image directly")
                 else:
                     vis_pil = Image.fromarray(vis.astype(np.uint8))
                     print("   🔄 Converting numpy array to PIL")
+                
                 buff = io.BytesIO()
                 vis_pil.save(buff, format="JPEG")
                 buff.seek(0)
+                conversion_time = time.time() - conversion_start
+                timing_data['image_conversion'] = conversion_time
+                print(f"   ✅ Image conversion: {conversion_time:.3f}s")
 
+                upload_start = time.time()
                 filename = f"{uuid.uuid4()}.jpg"
                 today = datetime.utcnow()
                 date_prefix = today.strftime("%Y/%m/%d")
@@ -334,28 +412,58 @@ def create_app(testing=False):
                     s3_key,
                     ExtraArgs={'ContentType': 'image/jpeg'}
                 )
+                upload_time = time.time() - upload_start
+                timing_data['s3_upload'] = upload_time
+                print(f"   ✅ S3 upload: {upload_time:.3f}s")
 
+                s3_total_time = time.time() - s3_start
+                timing_data['s3_total'] = s3_total_time
+                
                 s3_url = f"https://{aws_s3_bucket_name}.s3.{aws_s3_region}.amazonaws.com/{s3_key}"
-                print(f"Step 6: Successfully processed image and uploaded result to S3: {s3_url}")
-                api_logger.log(f"Step 6: Successfully processed image and uploaded result to S3: {s3_url}")
+                
+                total_time = time.time() - request_start_time
+                timing_data['total_request'] = total_time
+                
+                print(f"Step 4: Request completed in {total_time:.3f}s")
+                print(f"   📊 TIMING BREAKDOWN:")
+                print(f"      Request parsing: {timing_data['request_parsing']:.3f}s ({timing_data['request_parsing']/total_time*100:.1f}%)")
+                print(f"      Model check: {timing_data['model_check']:.3f}s ({timing_data['model_check']/total_time*100:.1f}%)")
+                print(f"      Model inference: {timing_data['model_inference']:.3f}s ({timing_data['model_inference']/total_time*100:.1f}%)")
+                print(f"      Image conversion: {timing_data['image_conversion']:.3f}s ({timing_data['image_conversion']/total_time*100:.1f}%)")
+                print(f"      S3 upload: {timing_data['s3_upload']:.3f}s ({timing_data['s3_upload']/total_time*100:.1f}%)")
+                print(f"      Total: {total_time:.3f}s")
+                print(f"   🚀 Successfully processed and uploaded: {s3_url}")
+                
+                api_logger.log(f"Request completed: {total_time:.3f}s (inference: {timing_data['model_inference']:.3f}s, S3: {timing_data['s3_upload']:.3f}s)")
                 
                 return jsonify({
                     "visualization_url": s3_url,
+                    "timing": timing_data
                 })
             else:
+                total_time = time.time() - request_start_time
+                timing_data['total_request'] = total_time
+                
                 # ⚡ SPEED: Minimal response for fast processing
-                print("Step 5: Fast response (no S3)")
+                print(f"Step 3: Fast response (no S3) - {total_time:.3f}s total")
+                print(f"   📊 TIMING BREAKDOWN:")
+                print(f"      Request parsing: {timing_data['request_parsing']:.3f}s ({timing_data['request_parsing']/total_time*100:.1f}%)")
+                print(f"      Model check: {timing_data['model_check']:.3f}s ({timing_data['model_check']/total_time*100:.1f}%)")
+                print(f"      Model inference: {timing_data['model_inference']:.3f}s ({timing_data['model_inference']/total_time*100:.1f}%)")
+                print(f"      Total: {total_time:.3f}s")
                 
                 return jsonify({
                     "success": True,
-                    "inference_completed": True
+                    "inference_completed": True,
+                    "timing": timing_data
                 })
 
         except Exception as e:
-            error_msg = f"Error processing image from URL {image_url}: {str(e)}"
+            total_time = time.time() - request_start_time
+            error_msg = f"Error processing image from URL {image_url}: {str(e)} (after {total_time:.3f}s)"
             api_logger.log(error_msg)
             print(error_msg)
-            return jsonify({"error": str(e)}), 500
+            return jsonify({"error": str(e), "timing": timing_data}), 500
 
     @app.route('/batch_infer', methods=['POST'])
     @torch.inference_mode()

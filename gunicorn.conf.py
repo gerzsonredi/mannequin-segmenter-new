@@ -2,10 +2,16 @@
 # Each Cloud Run instance handles exactly 1 concurrent request for maximum memory efficiency
 # Optimized for BiRefNet_lite horizontal scaling with CPU-only processing
 
+import os
+
 # Application
-bind = "0.0.0.0:5001"
-timeout = 900
-keepalive = 65
+port = os.environ.get("PORT", "5001")
+bind = f"0.0.0.0:{port}"
+
+# Timeouts - increased for model loading
+timeout = 900  # Request timeout (15 minutes)
+keepalive = 65 # Keep connections alive
+graceful_timeout = 120  # Graceful shutdown timeout
 
 # Worker processes - OPTIMIZED FOR HORIZONTAL SCALING (20 INSTANCES)
 # Strategy: 1 worker + 1 thread per instance, 20 instances = 20 concurrent capacity
@@ -15,47 +21,29 @@ threads = 1  # Single thread per instance (concurrency=1 on Cloud Run)
 worker_connections = 5  # Lower since only 1 concurrent request per instance
 
 # Restart workers after more requests to allow model pool to be utilized longer
-max_requests = 100  # Increased from 20 to prevent frequent model pool reinitialization
-max_requests_jitter = 20  # Proportional jitter
+max_requests = 100
+max_requests_jitter = 10
 
 # Logging
+loglevel = "info"
 accesslog = "-"  # Log to stdout
 errorlog = "-"   # Log to stderr
-loglevel = "info"
-access_log_format = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s" %(D)s'
 
 # Process naming
-proc_name = "mannequin-segmenter-api"
+proc_name = "mannequin-segmenter"
 
-# Server mechanics
-daemon = False
-pidfile = None
-tmp_upload_dir = None
+# Preload app for faster startup (but be careful with memory)
+preload_app = False  # Keep False to avoid issues with model loading
 
-# Worker timeout for graceful shutdown
-graceful_timeout = 60  # Increased timeout for model cleanup
+# Security
+limit_request_line = 8192
+limit_request_fields = 200
+limit_request_field_size = 16384
 
-# Preload application for better memory usage
-preload_app = False  # Changed to False to avoid model loading issues
+# Cloud Run optimizations
+# Enable proper signal handling for graceful shutdown
+enable_stdio_inheritance = True
 
-# Environment variables - MAXIMUM CPU UTILIZATION
-raw_env = [
-    f"PYTHONPATH={os.getenv('PYTHONPATH', '/app')}",
-    # Note: Threading will be set dynamically by DeepLabV3_MobileViT based on available cores
-    # Cloud Run has 2 CPUs, local machines may have more
-]
-
-def when_ready(server):
-    server.log.info("Mannequin Segmenter API server is ready. Listening on %s", server.address)
-
-def worker_int(worker):
-    worker.log.info("Worker received INT or QUIT signal")
-
-def pre_fork(server, worker):
-    server.log.info("Worker spawned (pid: %s)", worker.pid)
-
-def post_fork(server, worker):
-    server.log.info("Worker spawned (pid: %s)", worker.pid)
-
-def worker_abort(worker):
-    worker.log.info("Worker received SIGABRT signal") 
+print(f"🔧 Gunicorn configured for port {port}")
+print(f"🔧 Workers: {workers}, Threads: {threads}")
+print(f"🔧 Timeout: {timeout}s, Graceful timeout: {graceful_timeout}s") 

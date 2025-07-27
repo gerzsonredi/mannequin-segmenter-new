@@ -81,14 +81,24 @@ def _get_cached_model(model_name: str, device: torch.device):
 
 def _get_cached_image(image_url: str):
     """Get image from shared cache or download if not cached."""
+    cache_start = time.time()
+    
     with _cache_lock:
         if image_url in _image_cache:
+            cache_hit_time = time.time() - cache_start
+            print(f"        🎯 Cache HIT: {cache_hit_time:.3f}s")
             return _image_cache[image_url]
     
     # Download only if not cached
+    download_start = time.time()
     try:
+        print(f"        📥 Downloading: {image_url}")
         response = requests.get(image_url, timeout=15)
         response.raise_for_status()
+        download_time = time.time() - download_start
+        print(f"        ⬇️ Download complete: {download_time:.3f}s")
+        
+        decode_start = time.time()
         img_data = response.content
         
         # Convert to opencv format
@@ -96,19 +106,28 @@ def _get_cached_image(image_url: str):
         img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
         if img is not None:
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        decode_time = time.time() - decode_start
+        print(f"        🔄 Image decode: {decode_time:.3f}s")
         
         # Cache the result
+        cache_store_start = time.time()
         with _cache_lock:
             _image_cache[image_url] = img
             # Simple cache size management (keep only last 50 images)
             if len(_image_cache) > 50:
                 oldest_key = next(iter(_image_cache))
                 del _image_cache[oldest_key]
+        cache_store_time = time.time() - cache_store_start
+        print(f"        💾 Cache store: {cache_store_time:.3f}s")
+        
+        total_time = time.time() - cache_start
+        print(f"        ✅ Total download+cache: {total_time:.3f}s")
         
         return img
         
     except Exception as e:
-        print(f"⚠️ Image download failed: {e} (URL: {image_url})")
+        total_time = time.time() - cache_start
+        print(f"        ⚠️ Image download failed after {total_time:.3f}s: {e} (URL: {image_url})")
         return None
 
 def _download_model_from_s3(bucket_name: str, s3_key: str, local_path: str) -> bool:
@@ -884,33 +903,61 @@ class BiRefNetSegmenter:
         Returns:
             Processed image with mannequins removed
         """
+        method_start = time.time()
+        timing_breakdown = {}
+        
         # ✅ USE SHARED CACHE - No more redundant downloads or file I/O!
+        download_start = time.time()
         img = _get_cached_image(image_url)
+        download_time = time.time() - download_start
+        timing_breakdown['image_download'] = download_time
+        print(f"      🔽 Image download/cache: {download_time:.3f}s")
+        
         if img is None:
+            print(f"      ❌ Failed to download image: {image_url}")
             return None
 
         # Preprocess image for BiRefNet
+        preprocess_start = time.time()
         img_tensor = self._preprocess_image(img)
+        preprocess_time = time.time() - preprocess_start
+        timing_breakdown['preprocessing'] = preprocess_time
+        print(f"      🔧 Preprocessing: {preprocess_time:.3f}s")
         
         # Run inference (minimal logging for parallel performance)
+        inference_start = time.time()
         mask_tensor = self._run_inference(img_tensor)
+        inference_time = time.time() - inference_start
+        timing_breakdown['model_inference'] = inference_time
+        print(f"      🧠 Model inference: {inference_time:.3f}s")
         
         # Extract mannequin masks
+        mask_extraction_start = time.time()
         mannequin_mask = self._extract_mannequin_masks(mask_tensor, img.shape[:2])
+        mask_extraction_time = time.time() - mask_extraction_start
+        timing_breakdown['mask_extraction'] = mask_extraction_time
+        print(f"      🎭 Mask extraction: {mask_extraction_time:.3f}s")
         
         # Apply masks to remove unwanted areas
+        masking_start = time.time()
         processed_img = self.apply_masks_to_remove_unwanted_areas(img, mannequin_mask)
+        masking_time = time.time() - masking_start
+        timing_breakdown['mask_application'] = masking_time
+        print(f"      🖌️ Mask application: {masking_time:.3f}s")
         
         # Remove thin artifacts
+        cleaning_start = time.time()
         cleaned_img = self.remove_thin_stripes(
             processed_img,
             thickness_threshold=self.thickness_threshold,
             method="morphology"
         )
+        cleaning_time = time.time() - cleaning_start
+        timing_breakdown['artifact_cleaning'] = cleaning_time
+        print(f"      🧹 Artifact cleaning: {cleaning_time:.3f}s")
 
-
-
-        # Visualization
+        # Visualization (skip during timing analysis)
+        viz_start = time.time()
         if plot:
             plt.figure(figsize=(20, 4))
             
@@ -936,9 +983,13 @@ class BiRefNetSegmenter:
             
             plt.tight_layout()
             plt.show()
+        viz_time = time.time() - viz_start
+        timing_breakdown['visualization'] = viz_time
+        if plot:
+            print(f"      📊 Visualization: {viz_time:.3f}s")
 
         # Cleanup - no files to remove since we use shared cache
-            
+        cleanup_start = time.time()
         # GPU memory cleanup after processing (NO SYNCHRONIZE for parallel execution!)
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
@@ -958,6 +1009,23 @@ class BiRefNetSegmenter:
                 if self._image_counter % 100 == 0:
                     torch.cuda.ipc_collect()
             gc.collect()
+        cleanup_time = time.time() - cleanup_start
+        timing_breakdown['cleanup'] = cleanup_time
+        print(f"      🧹 Memory cleanup: {cleanup_time:.3f}s")
+        
+        total_method_time = time.time() - method_start
+        timing_breakdown['total_method'] = total_method_time
+        
+        print(f"      📊 BIREFNET METHOD BREAKDOWN ({total_method_time:.3f}s total):")
+        print(f"         Download/cache: {timing_breakdown['image_download']:.3f}s ({timing_breakdown['image_download']/total_method_time*100:.1f}%)")
+        print(f"         Preprocessing: {timing_breakdown['preprocessing']:.3f}s ({timing_breakdown['preprocessing']/total_method_time*100:.1f}%)")
+        print(f"         Model inference: {timing_breakdown['model_inference']:.3f}s ({timing_breakdown['model_inference']/total_method_time*100:.1f}%)")
+        print(f"         Mask extraction: {timing_breakdown['mask_extraction']:.3f}s ({timing_breakdown['mask_extraction']/total_method_time*100:.1f}%)")
+        print(f"         Mask application: {timing_breakdown['mask_application']:.3f}s ({timing_breakdown['mask_application']/total_method_time*100:.1f}%)")
+        print(f"         Artifact cleaning: {timing_breakdown['artifact_cleaning']:.3f}s ({timing_breakdown['artifact_cleaning']/total_method_time*100:.1f}%)")
+        if plot:
+            print(f"         Visualization: {timing_breakdown['visualization']:.3f}s ({timing_breakdown['visualization']/total_method_time*100:.1f}%)")
+        print(f"         Memory cleanup: {timing_breakdown['cleanup']:.3f}s ({timing_breakdown['cleanup']/total_method_time*100:.1f}%)")
             
         return cleaned_img
 
