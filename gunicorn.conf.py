@@ -13,8 +13,8 @@ timeout = 900  # Request timeout (15 minutes)
 keepalive = 65 # Keep connections alive
 graceful_timeout = 120  # Graceful shutdown timeout
 
-# Worker processes - OPTIMIZED FOR HORIZONTAL SCALING (20 INSTANCES)
-# Strategy: 1 worker + 1 thread per instance, 20 instances = 20 concurrent capacity
+# Worker processes - OPTIMIZED FOR HORIZONTAL SCALING (0-60 INSTANCES)
+# Strategy: 1 worker + 1 thread per instance, 60 instances = 60 concurrent capacity
 workers = 1  # Single worker per instance
 worker_class = "sync"  # Sync worker for Flask  
 threads = 1  # Single thread per instance (concurrency=1 on Cloud Run)

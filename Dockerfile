@@ -37,11 +37,8 @@ ENV FLASK_APP=api_app:app
 ENV FLASK_ENV=production
 ENV FORCE_CPU=true
 
-# Cloud Run sets PORT automatically, but we default to 5001
-ENV PORT=5001
-
-# Expose the port
-EXPOSE $PORT
+# Expose the port (Cloud Run sets PORT automatically)
+EXPOSE 5001
 
 # Optimize Python startup
 ENV PYTHONUNBUFFERED=1

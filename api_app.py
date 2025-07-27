@@ -79,7 +79,7 @@ try:
         
     print(f"✅ BiRefNet_lite model loaded on {single_model.device}")
     print(f"✅ Using AMP dtype: {AMP_DTYPE}")
-    print("🏗️ Architecture: 20 instances × 1 BiRefNet model = 20 parallel capacity")
+    print("🏗️ Architecture: 0-60 instances × 1 BiRefNet model = 60 parallel capacity")
     print(f"📊 Model size: {single_model.get_model_info()['parameters']:,} parameters")
     
     # Update startup status
@@ -196,7 +196,7 @@ def create_app(testing=False):
             model_stats = {
                 "model_loaded": True,
                 "device": model_info["device"],
-                "architecture": f"CPU Horizontal Scaling (20 instances) - {model_info['architecture']}",
+                "architecture": f"CPU Horizontal Scaling (0-60 instances) - {model_info['architecture']}",
                 "model_name": model_info["model_name"],
                 "parameters": model_info["parameters"]
             }
@@ -230,7 +230,7 @@ def create_app(testing=False):
                 "precision": model_info["precision"],
                 "image_size": model_info["image_size"],
                 "parameters": model_info["parameters"],
-                "instances": "20 instances × 1 concurrent = 20 parallel capacity",
+                "instances": "0-60 instances × 1 concurrent = 60 parallel capacity",
                 "memory_per_instance": "4Gi",
                 "cpu_per_instance": "2",
                 "model_architecture": model_info["architecture"]
@@ -630,8 +630,8 @@ def create_app(testing=False):
         """Optimized batch processing not needed in horizontal scaling mode."""
         return jsonify({
             "info": "Optimized batch processing not needed in horizontal scaling mode",
-            "recommendation": "Send individual requests to /infer - load balancer will distribute across 20 instances",
-            "architecture": "20 instances × 1 concurrent = 20 parallel capacity",
+            "recommendation": "Send individual requests to /infer - load balancer will distribute across 60 instances",
+            "architecture": "0-60 instances × 1 concurrent = 60 parallel capacity",
             "alternative": "Use /batch_infer for sequential processing on single instance"
         }), 200
         try:
@@ -790,8 +790,8 @@ def create_app(testing=False):
         """Lightweight batch processing not needed in horizontal scaling mode."""
         return jsonify({
             "info": "Lightweight batch processing not needed in horizontal scaling mode",
-            "recommendation": "Send individual requests to /infer - load balancer will distribute across 20 instances",
-            "architecture": "20 instances × 1 concurrent = 20 parallel capacity",
+            "recommendation": "Send individual requests to /infer - load balancer will distribute across 60 instances",
+            "architecture": "0-60 instances × 1 concurrent = 60 parallel capacity",
             "alternative": "Use /batch_infer for sequential processing on single instance"
         }), 200
         try:

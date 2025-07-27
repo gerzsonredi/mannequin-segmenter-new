@@ -94,12 +94,6 @@ ipython_config.py
 #   install all needed dependencies.
 #Pipfile.lock
 
-# UV
-#   Similar to Pipfile.lock, it is generally recommended to include uv.lock in version control.
-#   This is especially recommended for binary packages to ensure reproducibility, and is more
-#   commonly ignored for libraries.
-#uv.lock
-
 # poetry
 #   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
 #   This is especially recommended for binary packages to ensure reproducibility, and is more
@@ -112,10 +106,8 @@ ipython_config.py
 #pdm.lock
 #   pdm stores project-wide configurations in .pdm.toml, but it is recommended to not include it
 #   in version control.
-#   https://pdm.fming.dev/latest/usage/project/#working-with-version-control
+#   https://pdm.fming.dev/#use-with-ide
 .pdm.toml
-.pdm-python
-.pdm-build/
 
 # PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
 __pypackages__/
@@ -135,6 +127,10 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Local development environment files
+local_test.env
+*.local.env
 
 # Spyder project settings
 .spyderproject
@@ -162,56 +158,96 @@ cython_debug/
 
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
-#  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
-#  and can be added to the global gitignore or merged into this file.  For a more nuclear
-#  option (not recommended) you can uncomment the following to ignore the entire idea folder.
-#.idea/
+#  be added to the global gitignore or merged into this project gitignore.  For a PyCharm
+#  project, it is unlikely you will want to add the extra commit overhead of the .idea directory.
+.idea/
 
-# Abstra
-# Abstra is an AI-powered process automation framework.
-# Ignore directories containing user credentials, local state, and settings.
-# Learn more at https://abstra.io/docs
-.abstra/
+# Streamlit cache and logs
+.streamlit/
 
-# Visual Studio Code
-#  Visual Studio Code specific template is maintained in a separate VisualStudioCode.gitignore 
-#  that can be found at https://github.com/github/gitignore/blob/main/Global/VisualStudioCode.gitignore
-#  and can be added to the global gitignore or merged into this file. However, if you prefer, 
-#  you could uncomment the following to ignore the enitre vscode folder
-# .vscode/
+# VS Code
+.vscode/
 
-# Ruff stuff:
-.ruff_cache/
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
 
-# PyPI configuration file
-.pypirc
+# Temporary directories
+tmp/
+temp/
 
-# Cursor
-#  Cursor is an AI-powered code editor. `.cursorignore` specifies files/directories to
-#  exclude from AI features like autocomplete and code analysis. Recommended for sensitive data
-#  refer to https://docs.cursor.com/context/ignore-files
-.cursorignore
-.cursorindexingignore
-
-.env 
+# Model checkpoints and artifacts
 artifacts/
-remix-466614-e0eb921f6a64.json
-manual_labeling_result.xlsx
-# Remove EVF-SAM batch results
-# evfsam_batch_results.pdf
+models/birefnet_lite_mannequin_segmenter/
+models/deeplab_mobilevit_mannequin_segmenter/
+*.pth
+*.pt
+checkpoints/
 
-# Exclude downloaded models and test results
-models/
-batch_test_results_*.json
-batch_load_test_results_*.json
-performance_comparison_*.json
+# Logs
+logs/
+*.log
+.log
 
-# Test result files - don't commit
-cloud_run_throughput_results_*.json
-concurrent_60_test_results_*.json
-sequential_test_results_*.json
-*test_results_*.json
+# Environment variables
+.env
+.environment
 
-# Test scripts (optional)
-test_*.py
-local_quick_test.py
+# Performance test results and cache
+cache/
+*_cache/
+test_results/
+benchmark_results/
+performance_*/
+
+# Cloud Run secrets
+secrets/
+.secrets/
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# Private keys and certificates
+*.key
+*.crt
+*.pem
+
+# Test outputs and artifacts
+infer/
+output/
+results/
+visualizations/
+
+# Model cache
+model_cache/
+.model_cache/
+huggingface_cache/
+
+# macOS-specific files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Thumbnails
+._*
+
+# Files that might appear in the root of a volume
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Directories potentially created on remote AFP share
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Conda environments
+.conda/
+conda-meta/

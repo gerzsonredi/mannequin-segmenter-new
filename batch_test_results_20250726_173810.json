@@ -1,0 +1,108 @@
+{
+  "timestamp": "2025-07-26T17:38:10.780951",
+  "test_results": {
+    "config": {
+      "batch_size": 2,
+      "concurrent_batches": 2,
+      "total_images": 4,
+      "image_set": "small",
+      "upload_s3": false,
+      "use_optimized_endpoint": false,
+      "use_lightweight_endpoint": false
+    },
+    "summary": {
+      "total_duration": 5.077203035354614,
+      "successful_batches": 2,
+      "failed_batches": 0,
+      "total_successful_images": 4,
+      "total_failed_images": 0,
+      "overall_throughput": 0.7878353440164566,
+      "avg_batch_throughput": 0.43168315606914726
+    },
+    "batch_stats": {
+      "avg_duration": 4.652096509933472,
+      "median_duration": 4.652096509933472,
+      "min_duration": 4.3542540073394775,
+      "max_duration": 4.949939012527466
+    },
+    "batches": [
+      {
+        "batch_id": 1,
+        "success": true,
+        "duration": 4.949939012527466,
+        "successful_count": 2,
+        "failed_count": 0,
+        "batch_size": 2,
+        "throughput": 0.40404538216295904,
+        "response": {
+          "batch_size": 2,
+          "failed_count": 0,
+          "input_urls": [
+            "https://public-images-redivivum.s3.eu-central-1.amazonaws.com/Remix_data/Majka-teniska-Mustang-132434083b.jpg",
+            "https://public-images-redivivum.s3.eu-central-1.amazonaws.com/Remix_data/Majka-teniska-Mustang-132434083b.jpg"
+          ],
+          "successful_count": 2,
+          "visualization_urls": [
+            "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_0274fd66-57be-4dcb-bcb0-525871e28cf6_0.jpg",
+            "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_84199531-b24d-4ef3-a0c7-ddde3536effb_1.jpg"
+          ]
+        }
+      },
+      {
+        "batch_id": 2,
+        "success": true,
+        "duration": 4.3542540073394775,
+        "successful_count": 2,
+        "failed_count": 0,
+        "batch_size": 2,
+        "throughput": 0.45932092997533547,
+        "response": {
+          "batch_size": 2,
+          "failed_count": 0,
+          "input_urls": [
+            "https://public-images-redivivum.s3.eu-central-1.amazonaws.com/Remix_data/Majka-teniska-Mustang-132434083b.jpg",
+            "https://public-images-redivivum.s3.eu-central-1.amazonaws.com/Remix_data/Majka-teniska-Mustang-132434083b.jpg"
+          ],
+          "successful_count": 2,
+          "visualization_urls": [
+            "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_cafa1a63-c6ef-435b-be45-aaacbd3f7327_0.jpg",
+            "https://pictures-not-public.s3.eu-central-1.amazonaws.com/2025/07/26/batch_b79d13d0-7226-4193-8a20-703b34025b8d_1.jpg"
+          ]
+        }
+      }
+    ],
+    "monitoring": [
+      {
+        "timestamp": 1753544285.683201,
+        "datetime": "2025-07-26T17:38:05.683201",
+        "active_requests": 0,
+        "available_models": 30,
+        "gpu_memory": {
+          "allocated_gb": 2.735617160797119,
+          "max_allocated_gb": 9.301738262176514,
+          "reserved_gb": 2.880859375
+        },
+        "initialized": true,
+        "max_active_requests": 23,
+        "pool_size": 30,
+        "total_requests": 32
+      }
+    ],
+    "final_pool_stats": {
+      "pool_statistics": {
+        "active_requests": 0,
+        "available_models": 30,
+        "gpu_memory": {
+          "allocated_gb": 2.735617160797119,
+          "max_allocated_gb": 9.301738262176514,
+          "reserved_gb": 2.880859375
+        },
+        "initialized": true,
+        "max_active_requests": 23,
+        "pool_size": 30,
+        "total_requests": 32
+      },
+      "timestamp": "2025-07-26T15:38:10.817375"
+    }
+  }
+}
