@@ -115,20 +115,24 @@ class BiSeNetV1Segmenter:
         print(f"✅ BiSeNet v1 initialized on {self.device}")
     
     def _setup_bisenet_repo(self):
-        """Setup BiSeNet repository if not exists"""
+        """Setup BiSeNet repository - should be pre-cloned in Docker build"""
         bisenet_path = "BiSeNet"
         
-        if not os.path.exists(bisenet_path):
-            print("📥 Cloning BiSeNet repository...")
+        # Check if BiSeNet directory exists (should be pre-cloned in Dockerfile)
+        if os.path.exists(bisenet_path):
+            print(f"✅ Found pre-built BiSeNet directory: {bisenet_path}")
+        else:
+            print("⚠️ BiSeNet directory not found - this should not happen in production!")
+            print("🔧 Attempting to clone BiSeNet (fallback for local development)...")
             try:
                 subprocess.run([
                     "git", "clone", 
                     "https://github.com/CoinCheung/BiSeNet.git"
                 ], check=True, capture_output=True)
-                print("✅ BiSeNet repository cloned")
-            except subprocess.CalledProcessError as e:
+                print("✅ BiSeNet repository cloned successfully")
+            except Exception as e:
                 print(f"❌ Failed to clone BiSeNet: {e}")
-                raise
+                raise Exception(f"BiSeNet setup failed: {e}")
         
         # Add to Python path
         if bisenet_path not in sys.path:
