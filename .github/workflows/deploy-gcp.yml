@@ -54,7 +54,7 @@ jobs:
         docker push ${{ env.GAR_LOCATION }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
         docker push ${{ env.GAR_LOCATION }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:latest
 
-    - name: Deploy to Cloud Run with CPU (0-60 instances)
+    - name: Deploy to Cloud Run with CPU (0-100 instances, max 50 concurrent)
       run: |
         gcloud run deploy ${{ env.SERVICE_NAME }} \
           --image ${{ env.GAR_LOCATION }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
@@ -67,10 +67,10 @@ jobs:
           --timeout 900 \
           --cpu-boost \
           --concurrency=1 \
-          --min-instances 0 \
+          --min-instances 60 \
           --max-instances 60 \
           --execution-environment gen2 \
-          --set-env-vars="ENVIRONMENT=production,PYTHONPATH=/app,FORCE_CPU=true" \
+          --set-env-vars="ENVIRONMENT=production,PYTHONPATH=/app,FORCE_CPU=true,CPU_COUNT=2" \
           --set-secrets="AWS_ACCESS_KEY_ID=aws-access-key:latest" \
           --set-secrets="AWS_SECRET_ACCESS_KEY=aws-secret-key:latest" \
           --set-secrets="AWS_S3_BUCKET_NAME=aws-s3-bucket:latest" \
