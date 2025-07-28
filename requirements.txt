@@ -19,7 +19,7 @@ scipy==1.11.2
 einops==0.8.1
 
 # Image processing
-opencv-python
+opencv-python-headless
 Pillow==9.4.0
 matplotlib
 # pycocotools==2.0.6  # Removed - not needed for BiSeNet v1

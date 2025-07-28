@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y \
     libxrender-dev \
     libgomp1 \
     python3-dev \
+    libglib2.0-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install Python dependencies
