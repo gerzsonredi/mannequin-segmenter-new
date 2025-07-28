@@ -4,15 +4,17 @@ FROM python:3.11-slim
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies including git for BiSeNet
+# Install system dependencies including git for BiSeNet and build tools
 RUN apt-get update && apt-get install -y \
     git \
+    build-essential \
+    gcc \
     libglib2.0-0 \
     libsm6 \
     libxext6 \
     libxrender-dev \
     libgomp1 \
-    libglib2.0-0 \
+    python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install Python dependencies
@@ -27,9 +29,10 @@ RUN git clone https://github.com/CoinCheung/BiSeNet.git && \
 COPY . .
 
 # Set environment variables
-ENV PYTHONPATH=/app:/app/BiSeNet:$PYTHONPATH
+ENV PYTHONPATH=/app:/app/BiSeNet
 ENV FORCE_CPU=true
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
 
 # Expose port
 EXPOSE 8080

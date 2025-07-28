@@ -22,7 +22,7 @@ einops==0.8.1
 opencv-python
 Pillow==9.4.0
 matplotlib
-pycocotools==2.0.6
+# pycocotools==2.0.6  # Removed - not needed for BiSeNet v1
 
 # Utilities
 requests==2.31.0
