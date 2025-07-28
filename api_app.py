@@ -19,7 +19,7 @@ os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
 
 import torch
 # from tools.MaskRCNN_segmenter import MaskRCNNSegmenter
-from tools.BirefNet import BiRefNetSegmenter, _get_cached_image  # ✅ Import shared cache function
+# BiRefNet dependency removed - using BiSeNet v1 instead
 import cv2 # Added for cv2.cvtColor
 import time # Added for time.time()
 import gc # Added for garbage collection
@@ -49,8 +49,8 @@ torch.set_grad_enabled(False)  # Global inference mode
 # Initialize device and AMP dtype
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# Single Model initialization - BIREFNET_LITE ARCHITECTURE (BACK TO WORKING MODEL)
-print("🚀 Loading BiRefNet_lite Model globally (CPU optimized)...")
+# Single Model initialization - BISENET V1 ARCHITECTURE (NEW HIGH-PERFORMANCE MODEL)
+print("🚀 Loading BiSeNet v1 Model globally (CPU optimized)...")
 
 # Add startup status tracking for Cloud Run readiness
 startup_status = {
@@ -61,12 +61,12 @@ startup_status = {
 }
 
 try:
-    from tools.BirefNet import BiRefNetSegmenter
+    from tools.BiSeNet_v1 import BiSeNetV1Segmenter, _get_cached_image
     
-    # Initialize single BiRefNet model per instance (concurrency=1)
-    single_model = BiRefNetSegmenter(
-        model_path="models/birefnet_lite_mannequin_segmenter/checkpoint_20250726.pt",
-        model_name="zhengpeng7/BiRefNet_lite", 
+    # Initialize single BiSeNet v1 model per instance (concurrency=1)
+    single_model = BiSeNetV1Segmenter(
+        model_path="artifactsredi/models/mannequin_segmenter_bisenet/20250728/checkpoint-4.pt",
+        model_name="BiSeNet v1 (2-class)",
         precision="fp32",  # CPU uses fp32
         vis_save_dir="infer"
     )
@@ -77,9 +77,9 @@ try:
     else:
         AMP_DTYPE = torch.float32
         
-    print(f"✅ BiRefNet_lite model loaded on {single_model.device}")
+    print(f"✅ BiSeNet v1 model loaded on {single_model.device}")
     print(f"✅ Using AMP dtype: {AMP_DTYPE}")
-    print("🏗️ Architecture: 0-60 instances × 1 BiRefNet model = 60 parallel capacity")
+    print("🏗️ Architecture: 0-100 instances × 1 BiSeNet model = 100 parallel capacity")
     print(f"📊 Model size: {single_model.get_model_info()['parameters']:,} parameters")
     
     # Update startup status
@@ -169,6 +169,39 @@ def create_app(testing=False):
         # Return 200 even during startup to keep Cloud Run happy
         # Cloud Run needs to see 200 responses to consider the container ready
         return jsonify(health_data), 200
+
+    @app.route('/cpu_diagnostics', methods=['GET'])
+    def cpu_diagnostics():
+        """Detailed CPU and threading diagnostics for Cloud Run"""
+        import threading
+        import multiprocessing
+        
+        diagnostics = {
+            "system_info": {
+                "cpu_count_os": os.cpu_count(),
+                "cpu_count_multiprocessing": multiprocessing.cpu_count(),
+                "active_threads": threading.active_count(),
+                "current_thread": threading.current_thread().name
+            },
+            "pytorch_config": {
+                "torch_threads": torch.get_num_threads(),
+                "torch_device": str(device),
+                "torch_version": torch.__version__
+            },
+            "environment_variables": {
+                "OMP_NUM_THREADS": os.environ.get('OMP_NUM_THREADS', 'not_set'),
+                "MKL_NUM_THREADS": os.environ.get('MKL_NUM_THREADS', 'not_set'),
+                "NUMEXPR_MAX_THREADS": os.environ.get('NUMEXPR_MAX_THREADS', 'not_set'),
+                "BLAS_NUM_THREADS": os.environ.get('BLAS_NUM_THREADS', 'not_set'),
+                "TORCH_THREADS": os.environ.get('TORCH_THREADS', 'not_set'),
+                "FORCE_CPU": os.environ.get('FORCE_CPU', 'not_set'),
+                "ENVIRONMENT": os.environ.get('ENVIRONMENT', 'not_set')
+            },
+            "model_info": single_model.get_model_info() if single_model else None,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+        return jsonify(diagnostics)
 
     @app.route('/readiness', methods=['GET'])
     def readiness():
@@ -688,9 +721,9 @@ def create_app(testing=False):
                 
                 # Download images using shared cache (already optimized)
                 for i, url in enumerate(image_urls):
-                    img = _get_cached_image(url)  # This function is defined in BirefNet.py
+                    img = _get_cached_image(url)  # Image caching function  # Image caching function from BiSeNet_v1.py
                     if img is not None:
-                        # Convert RGB to BGR for BiRefNet
+                        # Convert RGB to BGR for BiSeNet
                         img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
                         image_arrays.append(img_bgr)
                     else:

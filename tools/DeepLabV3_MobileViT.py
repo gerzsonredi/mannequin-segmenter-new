@@ -403,3 +403,4 @@ class DeepLabV3MobileViTSegmenter:
 # url = "https://example.com/your_image.jpg"
 # out_img = segmenter.process_image_url(url, plot=True)
 # out_img.save("output_whitebg.png")
+ 

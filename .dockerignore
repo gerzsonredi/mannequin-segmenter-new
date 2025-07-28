@@ -65,12 +65,13 @@ local_*.py
 *_test.py
 
 # Model checkpoints and artifacts (will be downloaded at runtime)
-models/birefnet_lite_mannequin_segmenter/
+# models/birefnet_lite_mannequin_segmenter/ - removed, using BiSeNet v1
 models/deeplab_mobilevit_mannequin_segmenter/
 artifacts/
 checkpoints/
 *.pth
 *.pt
+*.onnx
 
 # Documentation and README files
 README.md

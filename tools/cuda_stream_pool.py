@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """
-Production CUDA Stream Pool for mannequin-segmenter API
-Single model + CUDA streams for optimal GPU memory usage and parallel inference
+🚨 DEPRECATED: CUDA Stream Pool for BiRefNet Models
+NOTE: This file is deprecated - the application now uses BiSeNet v1 with CPU optimization
+
+CUDA Stream Pool for High-Performance BiRefNet Inference
+Optimizes GPU memory usage and parallel processing for mannequin segmentation
 """
 
 import asyncio

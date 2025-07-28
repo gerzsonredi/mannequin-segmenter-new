@@ -121,16 +121,13 @@ celerybeat.pid
 
 # Environments
 .env
+.env.example
 .venv
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
-
-# Local development environment files
-local_test.env
-*.local.env
 
 # Spyder project settings
 .spyderproject
@@ -159,95 +156,110 @@ cython_debug/
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
 #  be added to the global gitignore or merged into this project gitignore.  For a PyCharm
-#  project, it is unlikely you will want to add the extra commit overhead of the .idea directory.
+#  project, it is recommended to use the provided PyChain or PyCharm Professional gitignore.
 .idea/
-
-# Streamlit cache and logs
-.streamlit/
-
-# VS Code
-.vscode/
 
 # macOS
 .DS_Store
 .AppleDouble
 .LSOverride
-
-# Temporary directories
-tmp/
-temp/
+.Spotlight-V100
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.fseventsd
+.Trashes
+.TemporaryItems
+.apdisk
 
 # Model checkpoints and artifacts
 artifacts/
-models/birefnet_lite_mannequin_segmenter/
+# models/birefnet_lite_mannequin_segmenter/ - removed, using BiSeNet v1
 models/deeplab_mobilevit_mannequin_segmenter/
+
+# BiSeNet external repository - not needed for production
+BiSeNet/
+
+# ALL MODEL FILES
 *.pth
 *.pt
-checkpoints/
+*.onnx
+*.pkl
+*.h5
+*.hdf5
+*.pb
+*.tflite
+*.mlmodel
+*.coreml
 
-# Logs
-logs/
-*.log
-.log
-
-# Environment variables
-.env
-.environment
-
-# Performance test results and cache
-cache/
-*_cache/
+# ALL TEST AND BENCHMARK RESULTS
+*.json
 test_results/
 benchmark_results/
-performance_*/
+load_test_results/
+performance_results/
+results/
 
-# Cloud Run secrets
-secrets/
-.secrets/
+# ALL LOG FILES
+logs/
+*.log
+*.out
+*.err
 
-# Jupyter notebook checkpoints
-.ipynb_checkpoints/
+# TESTING AND DEVELOPMENT FILES
+*test*.py
+*Test*.py
+*benchmark*.py
+*performance*.py
+*load_test*.py
+*debug*.py
+aggressive_*.py
+analyze_*.py
+batch_*.py
+concurrent_*.py
+local_*.py
+quick_*.py
+simple_*.py
+single_*.py
+monitor_*.py
+true_*.py
+cloud_run_*.py
 
-# Private keys and certificates
-*.key
-*.crt
-*.pem
-
-# Test outputs and artifacts
+# TEMPORARY FILES
+tmp/
+temp/
+.tmp/
+.cache/
+cache/
 infer/
 output/
 results/
-visualizations/
 
-# Model cache
-model_cache/
-.model_cache/
-huggingface_cache/
+# CREDENTIALS AND SECRETS  
+*.json
+*.key
+*.pem
+*.p12
+*.pfx
+service-account*.json
+*credentials*.json
+*config*.json
+*secrets*.json
 
-# macOS-specific files
-.DS_Store
-.AppleDouble
-.LSOverride
+# IDEs and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 
-# Thumbnails
-._*
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
 
-# Files that might appear in the root of a volume
-.DocumentRevisions-V100
-.fseventsd
-.Spotlight-V100
-.TemporaryItems
-.Trashes
-.VolumeIcon.icns
-.com.apple.timemachine.donotpresent
+# Docker
+.dockerignore
 
-# Directories potentially created on remote AFP share
-.AppleDB
-.AppleDesktop
-Network Trash Folder
-Temporary Items
-.apdisk
-
-# Conda environments
-.conda/
-conda-meta/
+# Documentation builds
+docs/_build/
+site/

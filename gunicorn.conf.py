@@ -1,6 +1,5 @@
-# Gunicorn configuration for Cloud Run mannequin segmentation API
-# Each Cloud Run instance handles exactly 1 concurrent request for maximum memory efficiency
-# Optimized for BiRefNet_lite horizontal scaling with CPU-only processing
+# Gunicorn configuration for mannequin-segmenter API
+# Optimized for BiSeNet v1 horizontal scaling with CPU-only processing
 
 import os
 
@@ -13,12 +12,16 @@ timeout = 900  # Request timeout (15 minutes)
 keepalive = 65 # Keep connections alive
 graceful_timeout = 120  # Graceful shutdown timeout
 
-# Worker processes - OPTIMIZED FOR HORIZONTAL SCALING (0-60 INSTANCES)
-# Strategy: 1 worker + 1 thread per instance, 60 instances = 60 concurrent capacity
+# Worker processes - OPTIMIZED FOR HORIZONTAL SCALING (0-100 INSTANCES, MAX 50 CONCURRENT)
+# Strategy: 1 worker + 1 thread per instance, each request uses ALL available CPUs
 workers = 1  # Single worker per instance
 worker_class = "sync"  # Sync worker for Flask  
-threads = 1  # Single thread per instance (concurrency=1 on Cloud Run)
-worker_connections = 5  # Lower since only 1 concurrent request per instance
+
+# CORRECT APPROACH: 1 request per instance uses ALL available CPUs
+# Each single request gets full CPU power (PyTorch uses all cores)  
+# Better than 2 requests competing for the same CPU resources
+threads = 1  # Single request per instance (no resource contention)
+worker_connections = 5  # Keep low for single concurrent request
 
 # Restart workers after more requests to allow model pool to be utilized longer
 max_requests = 100
@@ -47,3 +50,4 @@ enable_stdio_inheritance = True
 print(f"🔧 Gunicorn configured for port {port}")
 print(f"🔧 Workers: {workers}, Threads: {threads}")
 print(f"🔧 Timeout: {timeout}s, Graceful timeout: {graceful_timeout}s") 
+print(f"🧵 GUNICORN OPTIMIZATION: {threads} thread per instance (full CPU utilization per request)") 

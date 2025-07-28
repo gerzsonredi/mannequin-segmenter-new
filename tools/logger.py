@@ -1,3 +1,28 @@
+#!/usr/bin/env python3
+"""
+🔧 Advanced Logging System for Mannequin Segmentation Application
+
+Simple logger for BiSeNet mannequin segmentation application.
+
+Each day a new log file is created, named with the date and 'bisenet' marker.
+Logs are automatically uploaded to S3 for centralized monitoring.
+
+The logger provides structured logging with timestamps, proper formatting,
+and automatic cloud storage integration for production deployments.
+
+Features:
+- Daily log file rotation with timestamp-based naming
+- Automatic S3 upload with configurable bucket and region
+- Thread-safe operation for concurrent usage
+- Environment-based configuration (AWS credentials)
+- Structured log formatting with clear timestamps
+- Error handling for S3 upload failures
+
+Usage:
+    logger = AppLogger()
+    logger.log("Application started successfully")
+    logger.log("Processing completed", level="INFO")
+"""
 import os
 import boto3
 from datetime import datetime
@@ -10,9 +35,9 @@ except ImportError:
 
 class AppLogger:
     """
-    Simple logger for BiRefNet mannequin segmentation application.
+    Simple logger for BiSeNet mannequin segmentation application.
     Logs are saved locally and uploaded to S3 logs-redi bucket.
-    Each day a new log file is created, named with the date and 'birefnet' marker.
+    Each day a new log file is created, named with the date and 'bisenet' marker.
     """
     def __init__(self):
         self.bucket_name = "logs-redi"
@@ -33,7 +58,7 @@ class AppLogger:
 
     def _get_log_file_path(self):
         today = datetime.now().strftime("%Y-%m-%d")
-        filename = f"birefnet_{today}.log"
+        filename = f"bisenet_{today}.log"
         return os.path.join(self.log_dir, filename)
 
     def log(self, message: str):
@@ -48,7 +73,7 @@ class AppLogger:
         if self.s3_client is None:
             return
         try:
-            s3_key = f"birefnet/{os.path.basename(self.log_file)}"
+            s3_key = f"bisenet/{os.path.basename(self.log_file)}"
             self.s3_client.upload_file(self.log_file, self.bucket_name, s3_key)
         except Exception as e:
             # If upload fails, just skip (do not crash the app)

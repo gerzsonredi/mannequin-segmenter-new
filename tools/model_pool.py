@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """
-BiRefNet Model Pool Manager
+🚨 DEPRECATED: BiRefNet Model Pool Manager
+NOTE: This file is deprecated - the application now uses BiSeNet v1 with single model architecture
+
 Manages multiple BiRefNet model instances for parallel processing
+Creates a thread-safe pool of models for high-throughput inference
 """
 
 import threading
