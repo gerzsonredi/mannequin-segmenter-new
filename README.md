@@ -66,12 +66,14 @@ cd mannequin-segmenter
 GCP_PROJECT_ID=your_project_id_here
 GCP_SA_KEY=your_service_account_key_base64_encoded
 GCP_BUCKET_NAME=pictures-not-public
+GCP_MODELS_BUCKET=artifactsredi
 ```
 
 **Environment Variables:**
 - `GCP_PROJECT_ID`: Your Google Cloud Platform project ID
 - `GCP_SA_KEY`: Service account key in base64 encoded format
 - `GCP_BUCKET_NAME`: GCS bucket name for storing processed images (default: pictures-not-public)
+- `GCP_MODELS_BUCKET`: GCS bucket name for AI model files (default: artifactsredi)
 
 3. **Choose your deployment method:**
 

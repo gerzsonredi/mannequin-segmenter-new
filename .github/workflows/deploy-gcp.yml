@@ -67,14 +67,12 @@ jobs:
           --timeout 900 \
           --cpu-boost \
           --concurrency=1 \
-          --min-instances 60 \
-          --max-instances 60 \
+          --min-instances 2 \
+          --max-instances 2 \
           --execution-environment gen2 \
-          --set-env-vars="ENVIRONMENT=production,PYTHONPATH=/app,FORCE_CPU=true,CPU_COUNT=2" \
-          --set-secrets="AWS_ACCESS_KEY_ID=aws-access-key:latest" \
-          --set-secrets="AWS_SECRET_ACCESS_KEY=aws-secret-key:latest" \
-          --set-secrets="AWS_S3_BUCKET_NAME=aws-s3-bucket:latest" \
-          --set-secrets="AWS_S3_REGION=aws-s3-region:latest"
+          --set-env-vars="ENVIRONMENT=production,PYTHONPATH=/app,FORCE_CPU=true,CPU_COUNT=2,GCP_BUCKET_NAME=pictures-not-public,GCP_MODELS_BUCKET=artifactsredi" \
+          --set-secrets="GCP_PROJECT_ID=gcp-project-id:latest" \
+          --set-secrets="GCP_SA_KEY=gcp-sa-key:latest"
 
     - name: Route traffic to latest revision
       run: |
@@ -109,7 +107,7 @@ jobs:
         echo "- **URL**: ${{ env.SERVICE_URL }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Region**: ${{ env.REGION }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Image**: ${{ env.GAR_LOCATION }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-        echo "- **Auto-scaling**: 0-60 instances (1 concurrent per instance)" >> $GITHUB_STEP_SUMMARY
+        echo "- **Auto-scaling**: 2-2 instances (1 concurrent per instance)" >> $GITHUB_STEP_SUMMARY
         echo "- **Memory**: 4Gi per instance" >> $GITHUB_STEP_SUMMARY
         echo "- **CPU**: 2 per instance" >> $GITHUB_STEP_SUMMARY
-        echo "- **Total capacity**: 60 parallel requests" >> $GITHUB_STEP_SUMMARY 
+        echo "- **Total capacity**: 2 parallel requests" >> $GITHUB_STEP_SUMMARY 
