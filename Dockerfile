@@ -18,15 +18,19 @@ RUN apt-get update && apt-get install -y \
     libglib2.0-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install Python dependencies
+# Copy requirements and install Python dependencies (this layer gets cached)
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Clone BiSeNet repository once during build time
+# Clone BiSeNet repository once during build time (this layer gets cached)
 RUN git clone https://github.com/CoinCheung/BiSeNet.git && \
     echo "✅ BiSeNet repository cloned during build"
 
-# Copy application code
+# Copy only specific files first (reduces cache invalidation)
+COPY tools/ ./tools/
+COPY api_app.py gunicorn.conf.py request_limiter.py ./
+
+# Copy remaining files (this layer changes most often)
 COPY . .
 
 # Set environment variables
