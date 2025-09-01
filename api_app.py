@@ -65,7 +65,7 @@ try:
     from tools.BiSeNet_v1 import BiSeNetV1Segmenter, _get_cached_image
     
     # Initialize single BiSeNet v1 model per instance (concurrency=1)
-    models_bucket = get_env_variable("GCP_MODELS_BUCKET", "artifactsredi")
+    models_bucket = get_env_variable("GCP_MODELS_BUCKET") or "artifactsredi"
     model_path = f"{models_bucket}/models/mannequin_segmenter_bisenet/20250728/checkpoint-4.pt"
     single_model = BiSeNetV1Segmenter(
         model_path=model_path,
