@@ -6,7 +6,8 @@ import base64
 from PIL import Image
 import io
 import numpy as np
-import boto3
+from google.cloud import storage
+import json
 import concurrent.futures
 from dotenv import load_dotenv
 import os
@@ -117,18 +118,29 @@ def create_app(testing=False):
     # Note: AppLogger is a simple custom logger, not a standard Python logger
     # So we don't integrate it with Flask's logging system
 
-    # AWS S3 Configuration
-    aws_access_key_id = get_env_variable("AWS_ACCESS_KEY_ID")
-    aws_secret_access_key = get_env_variable("AWS_SECRET_ACCESS_KEY")
-    aws_s3_bucket_name = get_env_variable("AWS_S3_BUCKET_NAME")
-    aws_s3_region = get_env_variable("AWS_S3_REGION")
+    # GCP Cloud Storage Configuration
+    gcp_project_id = get_env_variable("GCP_PROJECT_ID")
+    gcp_sa_key_b64 = get_env_variable("GCP_SA_KEY")
+    gcp_bucket_name = get_env_variable("GCP_BUCKET_NAME", "pictures-not-public")
 
-    s3_client = boto3.client(
-        's3',
-        aws_access_key_id=aws_access_key_id,
-        aws_secret_access_key=aws_secret_access_key,
-        region_name=aws_s3_region
-    )
+    # Initialize GCS client with service account key
+    if gcp_sa_key_b64:
+        try:
+            # Decode base64 service account key
+            gcp_sa_key_json = base64.b64decode(gcp_sa_key_b64).decode('utf-8')
+            gcp_sa_key = json.loads(gcp_sa_key_json)
+            
+            # Create GCS client with service account credentials
+            gcs_client = storage.Client.from_service_account_info(gcp_sa_key, project=gcp_project_id)
+            gcs_bucket = gcs_client.bucket(gcp_bucket_name)
+        except Exception as e:
+            print(f"❌ Failed to initialize GCS client: {e}")
+            gcs_client = None
+            gcs_bucket = None
+    else:
+        print("⚠️ No GCP_SA_KEY provided, GCS uploads will be disabled")
+        gcs_client = None
+        gcs_bucket = None
     
     # Use global single model - no need to reload
     # In testing, this will be mocked to avoid loading the real model.
@@ -374,7 +386,7 @@ def create_app(testing=False):
                 return jsonify({"error": "image_url not provided"}), 400
 
             image_url = data['image_url']
-            upload_s3 = data.get('upload_s3', True)
+            upload_gcs = data.get('upload_gcs', True)
             parse_time = time.time() - parse_start
             timing_data['request_parsing'] = parse_time
             print(f"   ✅ Request parsing: {parse_time:.3f}s")
@@ -412,10 +424,16 @@ def create_app(testing=False):
                 api_logger.log(error_msg)
                 return jsonify({"error": "Failed to process image"}), 500
 
-            if upload_s3:
-                s3_start = time.time()
-                print("Step 3: S3 upload process...")
-                api_logger.log("Step 3: About to convert and upload to S3")
+            if upload_gcs:
+                gcs_start = time.time()
+                print("Step 3: GCS upload process...")
+                api_logger.log("Step 3: About to convert and upload to GCS")
+                
+                if gcs_bucket is None:
+                    error_msg = "GCS client not initialized"
+                    print(f"❌ {error_msg}")
+                    api_logger.log(error_msg)
+                    return jsonify({"error": error_msg}), 500
                 
                 # Handle both PIL Image and numpy array
                 conversion_start = time.time()
@@ -437,22 +455,20 @@ def create_app(testing=False):
                 filename = f"{uuid.uuid4()}.jpg"
                 today = datetime.utcnow()
                 date_prefix = today.strftime("%Y/%m/%d")
-                s3_key = f"{date_prefix}/{filename}"
+                gcs_key = f"removed_mannequin/{date_prefix}/{filename}"
 
-                s3_client.upload_fileobj(
-                    buff,
-                    aws_s3_bucket_name,
-                    s3_key,
-                    ExtraArgs={'ContentType': 'image/jpeg'}
-                )
-                upload_time = time.time() - upload_start
-                timing_data['s3_upload'] = upload_time
-                print(f"   ✅ S3 upload: {upload_time:.3f}s")
-
-                s3_total_time = time.time() - s3_start
-                timing_data['s3_total'] = s3_total_time
+                # Upload to GCS
+                blob = gcs_bucket.blob(gcs_key)
+                blob.upload_from_file(buff, content_type='image/jpeg')
                 
-                s3_url = f"https://{aws_s3_bucket_name}.s3.{aws_s3_region}.amazonaws.com/{s3_key}"
+                upload_time = time.time() - upload_start
+                timing_data['gcs_upload'] = upload_time
+                print(f"   ✅ GCS upload: {upload_time:.3f}s")
+
+                gcs_total_time = time.time() - gcs_start
+                timing_data['gcs_total'] = gcs_total_time
+                
+                gcs_url = f"https://storage.googleapis.com/{gcp_bucket_name}/{gcs_key}"
                 
                 total_time = time.time() - request_start_time
                 timing_data['total_request'] = total_time
@@ -463,14 +479,14 @@ def create_app(testing=False):
                 print(f"      Model check: {timing_data['model_check']:.3f}s ({timing_data['model_check']/total_time*100:.1f}%)")
                 print(f"      Model inference: {timing_data['model_inference']:.3f}s ({timing_data['model_inference']/total_time*100:.1f}%)")
                 print(f"      Image conversion: {timing_data['image_conversion']:.3f}s ({timing_data['image_conversion']/total_time*100:.1f}%)")
-                print(f"      S3 upload: {timing_data['s3_upload']:.3f}s ({timing_data['s3_upload']/total_time*100:.1f}%)")
+                print(f"      GCS upload: {timing_data['gcs_upload']:.3f}s ({timing_data['gcs_upload']/total_time*100:.1f}%)")
                 print(f"      Total: {total_time:.3f}s")
-                print(f"   🚀 Successfully processed and uploaded: {s3_url}")
+                print(f"   🚀 Successfully processed and uploaded: {gcs_url}")
                 
-                api_logger.log(f"Request completed: {total_time:.3f}s (inference: {timing_data['model_inference']:.3f}s, S3: {timing_data['s3_upload']:.3f}s)")
+                api_logger.log(f"Request completed: {total_time:.3f}s (inference: {timing_data['model_inference']:.3f}s, GCS: {timing_data['gcs_upload']:.3f}s)")
                 
                 return jsonify({
-                    "visualization_url": s3_url,
+                    "visualization_url": gcs_url,
                     "timing": timing_data
                 })
             else:
@@ -478,7 +494,7 @@ def create_app(testing=False):
                 timing_data['total_request'] = total_time
                 
                 # ⚡ SPEED: Minimal response for fast processing
-                print(f"Step 3: Fast response (no S3) - {total_time:.3f}s total")
+                print(f"Step 3: Fast response (no GCS) - {total_time:.3f}s total")
                 print(f"   📊 TIMING BREAKDOWN:")
                 print(f"      Request parsing: {timing_data['request_parsing']:.3f}s ({timing_data['request_parsing']/total_time*100:.1f}%)")
                 print(f"      Model check: {timing_data['model_check']:.3f}s ({timing_data['model_check']/total_time*100:.1f}%)")
@@ -579,16 +595,19 @@ def create_app(testing=False):
                 print("Error: No images were successfully processed in batch")
                 return jsonify({"error": "Failed to process any images in batch"}), 500
 
-            api_logger.log(f"Successfully processed {len(processed_images)} images, uploading to S3...")
-            print(f"Successfully processed {len(processed_images)} images, uploading to S3...")
+            api_logger.log(f"Successfully processed {len(processed_images)} images, uploading to GCS...")
+            print(f"Successfully processed {len(processed_images)} images, uploading to GCS...")
             
-            # Upload all processed images to S3 in parallel for better performance
+            # Upload all processed images to GCS in parallel for better performance
             today = datetime.utcnow()
             date_prefix = today.strftime("%Y/%m/%d")
             
             def upload_single_image(img_index_pair):
                 i, processed_img = img_index_pair
                 try:
+                    if gcs_bucket is None:
+                        return i, None, "GCS client not initialized"
+                    
                     # Convert to PIL and upload
                     vis_pil = Image.fromarray(processed_img.astype(np.uint8))
                     buff = io.BytesIO()
@@ -596,17 +615,14 @@ def create_app(testing=False):
                     buff.seek(0)
 
                     filename = f"batch_{uuid.uuid4()}_{i}.jpg"
-                    s3_key = f"{date_prefix}/{filename}"
+                    gcs_key = f"removed_mannequin/{date_prefix}/{filename}"
 
-                    s3_client.upload_fileobj(
-                        buff,
-                        aws_s3_bucket_name,
-                        s3_key,
-                        ExtraArgs={'ContentType': 'image/jpeg'}
-                    )
+                    # Upload to GCS
+                    blob = gcs_bucket.blob(gcs_key)
+                    blob.upload_from_file(buff, content_type='image/jpeg')
 
-                    s3_url = f"https://{aws_s3_bucket_name}.s3.{aws_s3_region}.amazonaws.com/{s3_key}"
-                    return i, s3_url, None
+                    gcs_url = f"https://storage.googleapis.com/{gcp_bucket_name}/{gcs_key}"
+                    return i, gcs_url, None
                     
                 except Exception as upload_error:
                     error_msg = f"Error uploading image {i}: {upload_error}"
@@ -619,12 +635,12 @@ def create_app(testing=False):
                 upload_tasks = [(i, img) for i, img in enumerate(processed_images)]
                 upload_results = list(executor.map(upload_single_image, upload_tasks))
             
-            # Build s3_urls list in correct order
-            s3_urls = [None] * len(processed_images)
-            for i, s3_url, error in upload_results:
-                s3_urls[i] = s3_url
+            # Build gcs_urls list in correct order
+            gcs_urls = [None] * len(processed_images)
+            for i, gcs_url, error in upload_results:
+                gcs_urls[i] = gcs_url
             
-            successful_uploads = [url for url in s3_urls if url is not None]
+            successful_uploads = [url for url in gcs_urls if url is not None]
             
             api_logger.log(f"Batch processing completed: {len(successful_uploads)}/{batch_size} successful")
             print(f"Batch processing completed: {len(successful_uploads)}/{batch_size} successful")
@@ -640,7 +656,7 @@ def create_app(testing=False):
                 "batch_size": batch_size,
                 "successful_count": len(successful_uploads),
                 "failed_count": batch_size - len(successful_uploads),
-                "visualization_urls": s3_urls,
+                "visualization_urls": gcs_urls,
                 "input_urls": image_urls
             })
 
@@ -926,7 +942,7 @@ def create_app(testing=False):
             return jsonify({"error": error_msg}), 500
 
     # Attach objects to app context for easier testing and access
-    app.config['S3_CLIENT'] = s3_client
+    app.config['GCS_CLIENT'] = gcs_client
     app.config['SINGLE_MODEL'] = single_model
     app.config['API_LOGGER'] = api_logger
     # app.config['DEFAULT_PROMPT_MODE'] = default_prompt_mode

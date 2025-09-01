@@ -353,7 +353,7 @@ def get_global_model_pool() -> BiRefNetModelPool:
             if _global_model_pool is None:  # Double-check pattern
                 _global_model_pool = BiRefNetModelPool(
                     pool_size=60,  # 🚀 PRODUCTION: 60 models for maximum parallelism
-                    model_path="models/birefnet_lite_mannequin_segmenter/checkpoint_20250726.pt", # NEW BIREFNET_LITE MODEL FROM S3
+                    model_path="models/birefnet_lite_mannequin_segmenter/checkpoint_20250726.pt", # NEW BIREFNET_LITE MODEL FROM GCS
                     model_name="zhengpeng7/BiRefNet_lite", # Use BiRefNet_lite
                     precision="fp16",
                     vis_save_dir="infer",

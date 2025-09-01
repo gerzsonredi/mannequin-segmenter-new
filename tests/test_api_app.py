@@ -17,7 +17,7 @@ class TestApiApp(unittest.TestCase):
     Test suite for the Flask application created by the factory pattern in api_app.py.
 
     This class uses unittest and extensive mocking to isolate the Flask app from its
-    external dependencies (AWS, model inference, logging, etc.), ensuring that only
+    external dependencies (GCP, model inference, logging, etc.), ensuring that only
     the API logic is tested. Each test method targets a specific endpoint or error
     scenario, and the setUp/tearDown methods manage the patching of dependencies.
     """
@@ -26,15 +26,15 @@ class TestApiApp(unittest.TestCase):
         """
         Set up the test environment before each test method.
 
-        - Patches external dependencies in api_app (get_env_variable, boto3, AppLogger, 
-          and load_dotenv) to prevent real AWS/model/logging/dotenv interactions.
-        - Configures the mocks for S3 client, model inferencer, and logger.
+        - Patches external dependencies in api_app (get_env_variable, storage, AppLogger, 
+          and load_dotenv) to prevent real GCP/model/logging/dotenv interactions.
+        - Configures the mocks for GCS client, model inferencer, and logger.
         - Creates the Flask app in testing mode and injects the mock inferencer.
         - Initializes the Flask test client for making requests to the app.
         """
         # Patch external dependencies for the entire test class
         self.patcher_env = patch('api_app.get_env_variable', self._mock_get_env)
-        self.patcher_boto3 = patch('api_app.boto3')
+        self.patcher_storage = patch('api_app.storage')
         self.patcher_dotenv = patch('api_app.load_dotenv')
 
         self.mock_get_env = self.patcher_env.start()

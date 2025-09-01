@@ -23,22 +23,23 @@ The processed images can then be used by downstream measurement microservices fo
 
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   Client App    │───▶│  Flask API       │───▶│   EVF-SAM       │
+│   Client App    │───▶│  Flask API       │───▶│   BiSeNet v1    │
 │                 │    │  (api_app.py)    │    │   Model         │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
                                │                         │
                                ▼                         │
 ┌─────────────────┐    ┌──────────────────┐             │
-│   AWS S3        │◀───│  Image Storage   │◀────────────┘
-│   Bucket        │    │  & Processing    │
+│   GCS Bucket    │◀───│  Image Storage   │◀────────────┘
+│ pictures-not-   │    │  & Processing    │
+│    public       │    │                  │
 └─────────────────┘    └──────────────────┘
 ```
 
 ### Key Components
 
 - **Flask API** (`api_app.py`): RESTful endpoint for image processing requests
-- **EVF-SAM Inferencer** (`evfsam.py`): Core image processing logic using computer vision
-- **S3 Integration**: Automatic upload of processed images to AWS S3
+- **BiSeNet v1 Segmenter** (`tools/BiSeNet_v1.py`): Core image processing logic using computer vision
+- **GCS Integration**: Automatic upload of processed images to Google Cloud Storage
 - **Docker Support**: Containerized deployment for scalability
 
 ## Quick Start
@@ -47,7 +48,7 @@ The processed images can then be used by downstream measurement microservices fo
 
 - Python 3.9
 - CUDA-capable GPU (recommended) or CPU
-- AWS account with S3 access
+- Google Cloud Platform account with Cloud Storage access
 - Docker (for containerized deployment)
 
 ### Environment Setup
@@ -59,23 +60,18 @@ git clone <your-repo>
 cd mannequin-segmenter
 ```
 
-2. **Create a `.env` file with your AWS credentials:**
+2. **Create a `.env` file with your GCP credentials:**
 
 ```env
-AWS_ACCESS_KEY_ID=your_access_key_here
-AWS_SECRET_ACCESS_KEY=your_secret_key_here
-AWS_S3_BUCKET_NAME=your_bucket_name
-AWS_S3_REGION=us-east-1
-
-# Optional: Set default prompt mode for all processing
-EVFSAM_PROMPT_MODE=both  # Options: "under", "above", "both" (default: "both")
+GCP_PROJECT_ID=your_project_id_here
+GCP_SA_KEY=your_service_account_key_base64_encoded
+GCP_BUCKET_NAME=pictures-not-public
 ```
 
 **Environment Variables:**
-- `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`: AWS credentials for S3 access
-- `AWS_S3_BUCKET_NAME`: S3 bucket name for storing processed images
-- `AWS_S3_REGION`: AWS region for S3 bucket
-- `EVFSAM_PROMPT_MODE` (optional): Default prompt mode - can be overridden per request
+- `GCP_PROJECT_ID`: Your Google Cloud Platform project ID
+- `GCP_SA_KEY`: Service account key in base64 encoded format
+- `GCP_BUCKET_NAME`: GCS bucket name for storing processed images (default: pictures-not-public)
 
 3. **Choose your deployment method:**
 
@@ -93,8 +89,8 @@ docker run -p 5001:5001 --env-file .env mannequin-segmenter
 
 ```bash
 # Install dependencies
-pip install flask torch boto3 python-dotenv
-pip install -r EVF-SAM/requirements.txt
+pip install flask torch google-cloud-storage python-dotenv
+pip install -r requirements.txt
 
 # Run the service
 python api_app.py
@@ -128,7 +124,7 @@ Processes an image URL to remove mannequins and unwanted areas.
 
 ```json
 {
-  "visualization_url": "https://your-bucket.s3.region.amazonaws.com/2024/01/15/uuid.jpg"
+  "visualization_url": "https://storage.googleapis.com/pictures-not-public/removed_mannequin/2024/01/15/uuid.jpg"
 }
 ```
 
@@ -264,7 +260,7 @@ docker run -d \
 3. **Segmentation**: Uses AI to identify mannequins, tubes, and unwanted areas
 4. **Mask Application**: Replaces identified areas with white background
 5. **Post-processing**: Removes thin artifacts and noise
-6. **Storage**: Uploads processed image to S3 with date-based organization
+6. **Storage**: Uploads processed image to GCS with date-based organization in `removed_mannequin/` folder
 
 ### Segmentation Targets
 
@@ -278,9 +274,9 @@ docker run -d \
 
 **Model Download Issues:**
 
-- Ensure AWS credentials are correctly configured
+- Ensure GCP credentials are correctly configured
 - Check internet connectivity for model downloads
-- Verify S3 bucket permissions
+- Verify GCS bucket permissions
 
 **Memory Issues:**
 
@@ -375,4 +371,4 @@ For issues and support:
 - Check the troubleshooting section above
 - Review logs for error details
 - Ensure all environment variables are set correctly
-- Verify AWS S3 permissions and connectivity
+- Verify GCS permissions and connectivity

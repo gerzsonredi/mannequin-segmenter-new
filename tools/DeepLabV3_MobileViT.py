@@ -12,7 +12,9 @@ import numpy as np
 from PIL import Image
 import requests
 import io
-import boto3
+from google.cloud import storage
+import json
+import base64
 import threading
 from transformers import AutoImageProcessor, AutoModelForSemanticSegmentation
 
@@ -123,15 +125,15 @@ class DeepLabV3MobileViTSegmenter:
                 print(f"⚠️ Failed to load local checkpoint: {e}")
         if not checkpoint_loaded:
             try:
-                print("Attempting to download checkpoint from S3...")
-                s3_path = f"s3://artifactsredi/models/mannequin_segmenter_deeplabv3_mobilevit/checkpoint_20250726.pt"
-                if self._download_model_from_s3(s3_path, model_path):
+                print("Attempting to download checkpoint from GCS...")
+                gcs_path = f"artifactsredi/models/mannequin_segmenter_deeplabv3_mobilevit/checkpoint_20250726.pt"
+                if self._download_model_from_gcs(gcs_path, model_path):
                     checkpoint = torch.load(model_path, map_location=self.device, weights_only=False)
                     self.model.load_state_dict(checkpoint, strict=False)
                     checkpoint_loaded = True
-                    print("✅ S3 checkpoint downloaded and loaded")
-            except Exception as s3_error:
-                print(f"⚠️ S3 download failed: {s3_error}")
+                    print("✅ GCS checkpoint downloaded and loaded")
+            except Exception as gcs_error:
+                print(f"⚠️ GCS download failed: {gcs_error}")
         if not checkpoint_loaded:
             print("ℹ️ Using base pretrained model (no custom checkpoint)")
         
@@ -149,23 +151,41 @@ class DeepLabV3MobileViTSegmenter:
         os.makedirs(vis_save_dir, exist_ok=True)
         print(f"✅ DeepLabV3-MobileViT initialized on {self.device}")
 
-    def _download_model_from_s3(self, s3_path: str, local_path: str) -> bool:
+    def _download_model_from_gcs(self, gcs_path: str, local_path: str) -> bool:
         try:
-            s3_path = s3_path.replace("s3://", "")
-            bucket_name = s3_path.split("/")[0]
-            key = "/".join(s3_path.split("/")[1:])
-            s3_client = boto3.client(
-                's3',
-                aws_access_key_id=get_env_variable('AWS_ACCESS_KEY_ID'),
-                aws_secret_access_key=get_env_variable('AWS_SECRET_ACCESS_KEY'),
-                region_name=get_env_variable('AWS_S3_REGION') or 'eu-central-1'
-            )
+            # Parse GCS path: bucket/key
+            parts = gcs_path.split('/', 1)
+            if len(parts) != 2:
+                raise ValueError(f"Invalid GCS path format: {gcs_path}")
+            
+            bucket_name, blob_path = parts
+            
+            # Initialize GCS client
+            gcp_project_id = get_env_variable("GCP_PROJECT_ID")
+            gcp_sa_key_b64 = get_env_variable("GCP_SA_KEY")
+            
+            if not gcp_sa_key_b64:
+                raise ValueError("GCP_SA_KEY environment variable not found")
+            
+            # Decode base64 service account key
+            gcp_sa_key_json = base64.b64decode(gcp_sa_key_b64).decode('utf-8')
+            gcp_sa_key = json.loads(gcp_sa_key_json)
+            
+            # Create GCS client with service account credentials
+            gcs_client = storage.Client.from_service_account_info(gcp_sa_key, project=gcp_project_id)
+            bucket = gcs_client.bucket(bucket_name)
+            blob = bucket.blob(blob_path)
+            
+            if not blob.exists():
+                raise FileNotFoundError(f"Model file not found in GCS: {bucket_name}/{blob_path}")
+            
+            # Download to local file
             os.makedirs(os.path.dirname(local_path), exist_ok=True)
-            s3_client.download_file(bucket_name, key, local_path)
-            print(f"✅ Model downloaded from S3: {s3_path}")
+            blob.download_to_filename(local_path)
+            print(f"✅ Model downloaded from GCS: {gcs_path}")
             return True
         except Exception as e:
-            print(f"❌ S3 download failed: {e}")
+            print(f"❌ GCS download failed: {e}")
             return False
 
     def _preprocess_image(self, image_url: str):

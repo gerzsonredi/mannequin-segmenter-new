@@ -18,42 +18,42 @@ sys.path.insert(0, str(project_root))
 @pytest.fixture
 def mock_env_variables():
     """
-    Fixture that provides a dictionary of mock environment variables commonly used for AWS and related configuration.
+    Fixture that provides a dictionary of mock environment variables commonly used for GCP and related configuration.
 
     Returns:
         dict: A dictionary containing mock values for:
-            - AWS_ACCESS_KEY_ID
-            - AWS_SECRET_ACCESS_KEY
-            - AWS_S3_BUCKET_NAME
-            - AWS_S3_REGION
+            - GCP_PROJECT_ID
+            - GCP_SA_KEY
+            - GCP_BUCKET_NAME
 
-    This fixture is useful for tests that require AWS credentials or configuration without using real secrets.
+    This fixture is useful for tests that require GCP credentials or configuration without using real secrets.
     """
     return {
-        "AWS_ACCESS_KEY_ID": "test_access_key_id",
-        "AWS_SECRET_ACCESS_KEY": "test_secret_access_key",
-        "AWS_S3_BUCKET_NAME": "test-bucket-name",
-        "AWS_S3_REGION": "us-east-1"
+        "GCP_PROJECT_ID": "test-project-id",
+        "GCP_SA_KEY": "dGVzdC1zZXJ2aWNlLWFjY291bnQta2V5",  # base64 encoded test key
+        "GCP_BUCKET_NAME": "test-bucket-name"
     }
 
 
 @pytest.fixture
-def mock_s3_client():
+def mock_gcs_client():
     """
-    Fixture that provides a mock S3 client object.
+    Fixture that provides a mock GCS client object.
 
     Returns:
-        MagicMock: A mock object simulating a boto3 S3 client, with the following methods mocked:
-            - upload_fileobj
-            - download_file
-            - get_paginator
+        MagicMock: A mock object simulating a Google Cloud Storage client, with the following methods mocked:
+            - bucket
+            - blob operations
 
-    This fixture allows tests to simulate S3 interactions without making real AWS calls.
+    This fixture allows tests to simulate GCS interactions without making real GCP calls.
     """
     client = MagicMock()
-    client.upload_fileobj = MagicMock()
-    client.download_file = MagicMock()
-    client.get_paginator = MagicMock()
+    mock_bucket = MagicMock()
+    mock_blob = MagicMock()
+    client.bucket.return_value = mock_bucket
+    mock_bucket.blob.return_value = mock_blob
+    mock_blob.upload_from_file = MagicMock()
+    mock_blob.download_to_file = MagicMock()
     return client
 
 
@@ -105,17 +105,17 @@ def temp_directory():
 
 
 @pytest.fixture
-def mock_boto3_session():
+def mock_gcs_storage():
     """
-    Fixture that provides a mock boto3 session object.
+    Fixture that provides a mock Google Cloud Storage module.
 
     Returns:
-        MagicMock: A mock object simulating a boto3 session.
+        MagicMock: A mock object simulating the google.cloud.storage module.
 
-    Use this fixture to test code that interacts with boto3 sessions without making real AWS calls.
+    Use this fixture to test code that interacts with GCS without making real GCP calls.
     """
-    session = MagicMock()
-    return session
+    storage_mock = MagicMock()
+    return storage_mock
 
 
 @pytest.fixture(scope="session")

@@ -5,18 +5,18 @@
 Simple logger for BiSeNet mannequin segmentation application.
 
 Each day a new log file is created, named with the date and 'bisenet' marker.
-Logs are automatically uploaded to S3 for centralized monitoring.
+Logs are automatically uploaded to GCS for centralized monitoring.
 
 The logger provides structured logging with timestamps, proper formatting,
 and automatic cloud storage integration for production deployments.
 
 Features:
 - Daily log file rotation with timestamp-based naming
-- Automatic S3 upload with configurable bucket and region
+- Automatic GCS upload with configurable bucket and project
 - Thread-safe operation for concurrent usage
-- Environment-based configuration (AWS credentials)
+- Environment-based configuration (GCP credentials)
 - Structured log formatting with clear timestamps
-- Error handling for S3 upload failures
+- Error handling for GCS upload failures
 
 Usage:
     logger = AppLogger()
@@ -24,7 +24,9 @@ Usage:
     logger.log("Processing completed", level="INFO")
 """
 import os
-import boto3
+import json
+import base64
+from google.cloud import storage
 from datetime import datetime
 
 # Handle both relative and absolute imports
@@ -36,22 +38,28 @@ except ImportError:
 class AppLogger:
     """
     Simple logger for BiSeNet mannequin segmentation application.
-    Logs are saved locally and uploaded to S3 logs-redi bucket.
+    Logs are saved locally and uploaded to GCS logs bucket.
     Each day a new log file is created, named with the date and 'bisenet' marker.
     """
     def __init__(self):
-        self.bucket_name = "logs-redi"
-        self.aws_access_key_id = get_env_variable("AWS_ACCESS_KEY_ID")
-        self.aws_secret_access_key = get_env_variable("AWS_SECRET_ACCESS_KEY")
-        self.aws_s3_region = get_env_variable("AWS_S3_REGION")
-        self.s3_client = None
-        if all([self.aws_access_key_id, self.aws_secret_access_key, self.aws_s3_region]):
-            self.s3_client = boto3.client(
-                's3',
-                aws_access_key_id=self.aws_access_key_id,
-                aws_secret_access_key=self.aws_secret_access_key,
-                region_name=self.aws_s3_region
-            )
+        self.bucket_name = "pictures-not-public"  # Using same bucket as images
+        self.gcp_project_id = get_env_variable("GCP_PROJECT_ID")
+        self.gcp_sa_key_b64 = get_env_variable("GCP_SA_KEY")
+        self.gcs_client = None
+        self.gcs_bucket = None
+        
+        if self.gcp_sa_key_b64:
+            try:
+                # Decode base64 service account key
+                gcp_sa_key_json = base64.b64decode(self.gcp_sa_key_b64).decode('utf-8')
+                gcp_sa_key = json.loads(gcp_sa_key_json)
+                
+                # Create GCS client with service account credentials
+                self.gcs_client = storage.Client.from_service_account_info(gcp_sa_key, project=self.gcp_project_id)
+                self.gcs_bucket = self.gcs_client.bucket(self.bucket_name)
+            except Exception as e:
+                print(f"❌ AppLogger: Failed to initialize GCS client: {e}")
+                
         self.log_dir = "logs"
         os.makedirs(self.log_dir, exist_ok=True)
         self.log_file = self._get_log_file_path()
@@ -67,14 +75,15 @@ class AppLogger:
         self.log_file = self._get_log_file_path()
         with open(self.log_file, "a") as f:
             f.write(logline)
-        self._upload_to_s3()
+        self._upload_to_gcs()
 
-    def _upload_to_s3(self):
-        if self.s3_client is None:
+    def _upload_to_gcs(self):
+        if self.gcs_bucket is None:
             return
         try:
-            s3_key = f"bisenet/{os.path.basename(self.log_file)}"
-            self.s3_client.upload_file(self.log_file, self.bucket_name, s3_key)
+            gcs_key = f"logs/bisenet/{os.path.basename(self.log_file)}"
+            blob = self.gcs_bucket.blob(gcs_key)
+            blob.upload_from_filename(self.log_file)
         except Exception as e:
             # If upload fails, just skip (do not crash the app)
             pass 

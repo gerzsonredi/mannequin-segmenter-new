@@ -13,8 +13,10 @@ from torchvision.transforms import functional as TF
 from PIL import Image
 import numpy as np
 import requests
-import boto3
-from botocore.exceptions import ClientError
+from google.cloud import storage
+import json
+import base64
+
 import io
 import subprocess
 import cv2
@@ -29,25 +31,21 @@ try:
             load_dotenv(env_file, override=True)
             print(f"✅ Loaded environment variables from {env_file}")
             
-            # DEBUG: Show first 4 characters of AWS credentials
-            aws_key = os.environ.get('AWS_ACCESS_KEY_ID', '')
-            aws_secret = os.environ.get('AWS_SECRET_ACCESS_KEY', '')
-            aws_region = os.environ.get('AWS_S3_REGION', '')
-            print(f"🔑 DEBUG AWS_ACCESS_KEY_ID: {aws_key[:4]}*** (length: {len(aws_key)})")
-            print(f"🔑 DEBUG AWS_SECRET_ACCESS_KEY: {aws_secret[:4]}*** (length: {len(aws_secret)})")
-            print(f"🔑 DEBUG AWS_S3_REGION: {aws_region}")
+            # DEBUG: Show first 4 characters of GCP credentials
+            gcp_project = os.environ.get('GCP_PROJECT_ID', '')
+            gcp_sa_key = os.environ.get('GCP_SA_KEY', '')
+            print(f"🔑 DEBUG GCP_PROJECT_ID: {gcp_project}")
+            print(f"🔑 DEBUG GCP_SA_KEY: {gcp_sa_key[:4]}*** (length: {len(gcp_sa_key)})")
             
             dotenv_loaded = True
             break
     if not dotenv_loaded:
         print("⚠️ No .env or local_test.env found, using system environment only")
-        # DEBUG: Show system environment AWS credentials
-        aws_key = os.environ.get('AWS_ACCESS_KEY_ID', '')
-        aws_secret = os.environ.get('AWS_SECRET_ACCESS_KEY', '')
-        aws_region = os.environ.get('AWS_S3_REGION', '')
-        print(f"🔑 DEBUG System AWS_ACCESS_KEY_ID: {aws_key[:4]}*** (length: {len(aws_key)})")
-        print(f"🔑 DEBUG System AWS_SECRET_ACCESS_KEY: {aws_secret[:4]}*** (length: {len(aws_secret)})")
-        print(f"🔑 DEBUG System AWS_S3_REGION: {aws_region}")
+        # DEBUG: Show system environment GCP credentials
+        gcp_project = os.environ.get('GCP_PROJECT_ID', '')
+        gcp_sa_key = os.environ.get('GCP_SA_KEY', '')
+        print(f"🔑 DEBUG System GCP_PROJECT_ID: {gcp_project}")
+        print(f"🔑 DEBUG System GCP_SA_KEY: {gcp_sa_key[:4]}*** (length: {len(gcp_sa_key)})")
 except ImportError:
     print("⚠️ python-dotenv not installed, skipping .env loading")
 # --- END NEW ---
@@ -67,7 +65,7 @@ class BiSeNetV1Segmenter:
         Initialize BiSeNet v1 segmenter
         
         Args:
-            model_path: S3 path to model checkpoint
+            model_path: GCS path to model checkpoint
             model_name: Model identifier 
             image_size: Input image size
             precision: Model precision (fp32/fp16)
@@ -146,158 +144,78 @@ class BiSeNetV1Segmenter:
             print(f"❌ Failed to import BiSeNet v1: {e}")
             raise
     
-    def _download_model_from_s3(self, s3_path):
-        """Download model checkpoint from S3"""
-        if not s3_path:
-            raise ValueError("S3 model path is required")
+    def _download_model_from_gcs(self, gcs_path):
+        """Download model checkpoint from GCS"""
+        if not gcs_path:
+            raise ValueError("GCS model path is required")
         
-        print(f"📥 Downloading model from S3: {s3_path}")
+        print(f"📥 Downloading model from GCS: {gcs_path}")
         
-        # Parse S3 path: s3://bucket/key or bucket/key
-        if s3_path.startswith('s3://'):
-            s3_path = s3_path[5:]  # Remove s3:// prefix
-        
-        parts = s3_path.split('/', 1)
+        # Parse GCS path: bucket/key
+        parts = gcs_path.split('/', 1)
         if len(parts) != 2:
-            raise ValueError(f"Invalid S3 path format: {s3_path}")
+            raise ValueError(f"Invalid GCS path format: {gcs_path}")
         
-        bucket, key = parts
+        bucket_name, blob_path = parts
         
         # DEBUG: Show parsed bucket and key
-        print(f"🪣 DEBUG Parsed bucket: '{bucket}'")
-        print(f"🔑 DEBUG Parsed key: '{key}'")
+        print(f"🪣 DEBUG Parsed bucket: '{bucket_name}'")
+        print(f"🔑 DEBUG Parsed blob path: '{blob_path}'")
         
         try:
-            # Initialize S3 client - try multiple regions
-            access_key = get_env_variable('AWS_ACCESS_KEY_ID')
-            secret_key = get_env_variable('AWS_SECRET_ACCESS_KEY')
-            regions_to_try = [
-                get_env_variable('AWS_S3_REGION') or 'eu-central-1',
-                'us-east-1',  # Default AWS region
-                'eu-west-1',  # Common EU region
-                'us-west-2'   # Common US region
-            ]
+            # Initialize GCS client
+            gcp_project_id = get_env_variable("GCP_PROJECT_ID")
+            gcp_sa_key_b64 = get_env_variable("GCP_SA_KEY")
             
-            # Remove duplicates while preserving order
-            regions_to_try = list(dict.fromkeys(regions_to_try))
+            if not gcp_sa_key_b64:
+                raise ValueError("GCP_SA_KEY environment variable not found")
             
-            buffer = None
-            last_error = None
+            # Decode base64 service account key
+            gcp_sa_key_json = base64.b64decode(gcp_sa_key_b64).decode('utf-8')
+            gcp_sa_key = json.loads(gcp_sa_key_json)
             
-            for region in regions_to_try:
-                try:
-                    print(f"🌍 Trying region: {region}")
-                    
-                    s3_client = boto3.client(
-                        's3',
-                        aws_access_key_id=access_key,
-                        aws_secret_access_key=secret_key,
-                        region_name=region
-                    )
-                    
-                    # TEST: Try to list bucket contents first to check permissions
-                    print(f"📋 Testing bucket access in {region}...")
-                    try:
-                        folder_prefix = key.rsplit('/', 1)[0] + '/'
-                        print(f"🔍 Listing with prefix: '{folder_prefix}'")
-                        
-                        # FIRST: Compare with a working directory (DeepLabV3)
-                        print(f"🆚 COMPARISON: Listing DeepLabV3 models first...")
-                        try:
-                            comparison_response = s3_client.list_objects_v2(
-                                Bucket=bucket,
-                                Prefix="models/mannequin_segmenter_deeplabv3_mobilevit/",
-                                MaxKeys=10
-                            )
-                            if 'Contents' in comparison_response:
-                                print(f"✅ DeepLabV3 folder has {len(comparison_response['Contents'])} objects:")
-                                for obj in comparison_response['Contents'][:3]:  # Show first 3
-                                    print(f"   📄 {obj['Key']} (size: {obj['Size']} bytes)")
-                            else:
-                                print(f"❌ DeepLabV3 folder is empty")
-                        except Exception as e:
-                            print(f"❌ DeepLabV3 comparison failed: {e}")
-                        
-                        # NOW: List our target directory with multiple strategies
-                        print(f"🎯 NOW checking BiSeNet directory...")
-                        
-                        # Strategy 1: With trailing slash
-                        response = s3_client.list_objects_v2(
-                            Bucket=bucket,
-                            Prefix=folder_prefix,
-                            MaxKeys=50
-                        )
-                        
-                        if 'Contents' in response:
-                            print(f"✅ BiSeNet folder has {len(response['Contents'])} objects (with slash):")
-                            for obj in response['Contents']:
-                                print(f"   📄 {obj['Key']} (size: {obj['Size']} bytes)")
-                                if obj['Key'] == key:
-                                    print(f"   🎯 TARGET FILE FOUND: {key}")
-                        else:
-                            print(f"📂 BiSeNet folder appears empty (with slash)")
-                            
-                        # Strategy 2: Without trailing slash
-                        response2 = s3_client.list_objects_v2(
-                            Bucket=bucket,
-                            Prefix=key.rsplit('/', 1)[0],
-                            MaxKeys=50
-                        )
-                        
-                        if 'Contents' in response2:
-                            print(f"📦 BiSeNet folder has {len(response2['Contents'])} objects (without slash):")
-                            for obj in response2['Contents']:
-                                if obj['Key'] not in [o['Key'] for o in response.get('Contents', [])]:
-                                    print(f"   📄 {obj['Key']} (size: {obj['Size']} bytes)")
-                        
-                        # Strategy 3: List versions (in case of versioning)
-                        print(f"🔄 Checking for object versions...")
-                        try:
-                            versions_response = s3_client.list_object_versions(
-                                Bucket=bucket,
-                                Prefix=folder_prefix,
-                                MaxKeys=10
-                            )
-                            if 'Versions' in versions_response:
-                                print(f"📝 Found {len(versions_response['Versions'])} versions:")
-                                for ver in versions_response['Versions']:
-                                    print(f"   📄 {ver['Key']} (version: {ver['VersionId'][:8]}...)")
-                        except Exception as e:
-                            print(f"⚠️ Versioning check failed: {e}")
-                            
-                    except ClientError as list_error:
-                        print(f"❌ Cannot list bucket in {region}: {list_error.response['Error']['Code']}")
-                        continue
-                    
-                    # Skip listing check and try direct download (encrypted files may not show in list)
-                    print(f"🔍 Attempting direct download from {region}...")
-                    
-                    # Download to memory
-                    buffer = io.BytesIO()
-                    s3_client.download_fileobj(bucket, key, buffer)
-                    buffer.seek(0)
-                    
-                    file_size = buffer.tell()
-                    print(f"✅ Successfully downloaded from region {region} - Size: {file_size:,} bytes")
-                    break
-                    
-                except ClientError as e:
-                    error_code = e.response['Error']['Code']
-                    print(f"❌ Region {region} failed: {error_code} - {e.response['Error']['Message']}")
-                    last_error = e
-                    continue
+            # Create GCS client with service account credentials
+            gcs_client = storage.Client.from_service_account_info(gcp_sa_key, project=gcp_project_id)
+            bucket = gcs_client.bucket(bucket_name)
             
-            if buffer is None:
-                raise last_error or Exception("Failed to download from any region")
+            # List files in the model directory to debug
+            print(f"📋 Listing files in model directory...")
+            folder_prefix = blob_path.rsplit('/', 1)[0] + '/'
+            blobs = list(bucket.list_blobs(prefix=folder_prefix, max_results=20))
             
-            print("✅ Model downloaded from S3 successfully")
+            if blobs:
+                print(f"📄 Found {len(blobs)} files in folder:")
+                for blob in blobs:
+                    print(f"   📄 {blob.name} (size: {blob.size:,} bytes)")
+            else:
+                print(f"📭 Folder '{folder_prefix}' is empty")
+            
+            # Download the specific blob
+            print(f"⬇️ Attempting download: {bucket_name}/{blob_path}")
+            blob = bucket.blob(blob_path)
+            
+            if not blob.exists():
+                raise FileNotFoundError(f"Model file not found in GCS: {bucket_name}/{blob_path}")
+            
+            # Download to memory buffer
+            buffer = io.BytesIO()
+            blob.download_to_file(buffer)
+            buffer.seek(0)
+            
+            # Validate file size
+            buffer.seek(0, 2)  # Seek to end
+            file_size = buffer.tell()
+            buffer.seek(0)  # Reset to beginning
+            
+            print(f"📦 Downloaded model: {file_size:,} bytes")
+            if file_size < 1000:  # Less than 1KB is suspicious
+                raise ValueError(f"Downloaded file too small: {file_size} bytes")
+            
+            print("✅ Model downloaded from GCS successfully")
             return buffer
             
-        except ClientError as e:
-            print(f"❌ S3 download failed: {e}")
-            raise
         except Exception as e:
-            print(f"❌ S3 client setup failed: {e}")
+            print(f"❌ GCS download failed: {e}")
             raise
     
     def _load_model(self, model_path):
@@ -309,7 +227,7 @@ class BiSeNetV1Segmenter:
         
         if model_path:
             # Download and load checkpoint
-            checkpoint_buffer = self._download_model_from_s3(model_path)
+            checkpoint_buffer = self._download_model_from_gcs(model_path)
             checkpoint = torch.load(checkpoint_buffer, map_location=self.device)
             
             print(f"Loading custom checkpoint from: {model_path}")
@@ -537,6 +455,6 @@ if __name__ == "__main__":
     result = segmenter.process_image_url(test_url)
     
     if result:
-        print("✅ BiSeNet v1 test completed successfully - Image uploaded to S3!")
+        print("✅ BiSeNet v1 test completed successfully - Image uploaded to GCS!")
     else:
         print("❌ BiSeNet v1 test failed") 
