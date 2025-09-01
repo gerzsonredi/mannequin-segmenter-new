@@ -19,7 +19,7 @@ env:
   SERVICE_NAME: mannequin-segmenter-new
   REGION: europe-west4
   GAR_LOCATION: europe-west4-docker.pkg.dev
-  REPOSITORY: mannequin-segmenter-repo-new
+  REPOSITORY: mannequin-segmenter-repo
 
 jobs:
   deploy:
