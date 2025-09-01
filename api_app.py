@@ -85,6 +85,15 @@ try:
     print("🏗️ Architecture: 0-100 instances × 1 BiSeNet model = 100 parallel capacity")
     print(f"📊 Model size: {single_model.get_model_info()['parameters']:,} parameters")
     
+    # 🚨 CRITICAL: Log connection limits and threading config at startup
+    print("\n🔍 STARTUP DIAGNOSTICS:")
+    print(f"   🧵 PyTorch threads: {torch.get_num_threads()}")
+    print(f"   🌐 OMP_NUM_THREADS: {os.getenv('OMP_NUM_THREADS', 'default')}")
+    print(f"   🔄 Force CPU mode: {force_cpu}")
+    print(f"   ⚡ CUDA available: {torch.cuda.is_available()}")
+    print("   🚨 LOCK-FREE MODE: Global image cache lock DISABLED to prevent serialization!")
+    print("   📡 Per-request downloads: Each instance downloads separately (no shared cache)")
+    
     # Update startup status
     startup_status["model_loading"] = False
     startup_status["model_loaded"] = True
@@ -270,7 +279,7 @@ def create_app(testing=False):
         if single_model:
             model_info = single_model.get_model_info()
             stats = {
-                "architecture": "CPU Horizontal Scaling (Fast DeepLabV3-MobileViT)",
+                "architecture": "CPU Horizontal Scaling (BiSeNet v1)",
                 "model_loaded": True,
                 "device": model_info["device"],
                 "model_name": model_info["model_name"],

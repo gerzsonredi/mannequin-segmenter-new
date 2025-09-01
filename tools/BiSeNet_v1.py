@@ -365,7 +365,7 @@ class BiSeNetV1Segmenter:
             retry_strategy = Retry(
                 total=3,
                 status_forcelist=[429, 500, 502, 503, 504],
-                method_whitelist=["HEAD", "GET", "OPTIONS"],
+                allowed_methods=["HEAD", "GET", "OPTIONS"],  # Updated API
                 backoff_factor=0.3  # 0.3, 0.6, 1.2 seconds
             )
             adapter = HTTPAdapter(
@@ -438,20 +438,45 @@ _image_cache = {}
 _cache_lock = threading.Lock()
 
 def _get_cached_image(image_url: str):
-    """Get image from shared cache or download if not cached."""
+    """
+    Download image without caching to avoid lock-based serialization.
+    
+    🚨 CRITICAL FIX: Removed global cache lock that was serializing all downloads!
+    With concurrency=1 and 50 instances, separate downloads per instance are better.
+    """
     cache_start = time.time()
     
-    with _cache_lock:
-        if image_url in _image_cache:
-            cache_hit_time = time.time() - cache_start
-            print(f"        🎯 Cache HIT: {cache_hit_time:.3f}s")
-            return _image_cache[image_url]
-    
-    # Download only if not cached
+    # Always download (no cache to prevent lock contention)
     download_start = time.time()
     try:
-        print(f"        📥 Downloading: {image_url}")
-        response = requests.get(image_url, timeout=15)
+        print(f"        📥 Downloading (LOCK-FREE): {image_url}")
+        
+        # Use optimized session without global locks
+        session = requests.Session()
+        session.headers.update({
+            'Accept-Encoding': 'gzip, deflate',
+            'Connection': 'keep-alive',
+            'User-Agent': 'mannequin-segmenter-lockfree/1.0'
+        })
+        
+        from requests.adapters import HTTPAdapter
+        from urllib3.util.retry import Retry
+        
+        retry_strategy = Retry(
+            total=3,
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=["HEAD", "GET", "OPTIONS"],  # Updated API
+            backoff_factor=0.3
+        )
+        adapter = HTTPAdapter(
+            max_retries=retry_strategy,
+            pool_connections=5,
+            pool_maxsize=10
+        )
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+        
+        response = session.get(image_url, timeout=(5, 15))
         response.raise_for_status()
         download_time = time.time() - download_start
         print(f"        ⬇️ Download complete: {download_time:.3f}s")
@@ -467,25 +492,19 @@ def _get_cached_image(image_url: str):
         decode_time = time.time() - decode_start
         print(f"        🔄 Image decode: {decode_time:.3f}s")
         
-        # Cache the result
-        cache_store_start = time.time()
-        with _cache_lock:
-            _image_cache[image_url] = img
-            # Simple cache size management (keep only last 50 images)
-            if len(_image_cache) > 50:
-                oldest_key = next(iter(_image_cache))
-                del _image_cache[oldest_key]
-        cache_store_time = time.time() - cache_store_start
-        print(f"        💾 Cache store: {cache_store_time:.3f}s")
-        
         total_time = time.time() - cache_start
-        print(f"        ✅ Total download+cache: {total_time:.3f}s")
+        print(f"        ✅ Total download (LOCK-FREE): {total_time:.3f}s")
+        
+        # Clean up session
+        session.close()
         
         return img
         
     except Exception as e:
         total_time = time.time() - cache_start
         print(f"        ⚠️ Image download failed after {total_time:.3f}s: {e} (URL: {image_url})")
+        if 'session' in locals():
+            session.close()
         return None
 
 
