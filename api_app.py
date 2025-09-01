@@ -472,8 +472,11 @@ def create_app(testing=False):
                 
                 gcs_url = f"https://storage.googleapis.com/{gcp_bucket_name}/{gcs_key}"
                 
-                total_time = time.time() - request_start_time
+                # Mark when instance finishes processing (before response creation)
+                instance_completed_time = time.time()
+                total_time = instance_completed_time - request_start_time
                 timing_data['total_request'] = total_time
+                timing_data['instance_completed_timestamp'] = instance_completed_time
                 
                 print(f"Step 4: Request completed in {total_time:.3f}s")
                 print(f"   📊 TIMING BREAKDOWN:")
@@ -484,6 +487,7 @@ def create_app(testing=False):
                 print(f"      GCS upload: {timing_data['gcs_upload']:.3f}s ({timing_data['gcs_upload']/total_time*100:.1f}%)")
                 print(f"      Total: {total_time:.3f}s")
                 print(f"   🚀 Successfully processed and uploaded: {gcs_url}")
+                print(f"   ⏰ Instance completed at: {instance_completed_time:.6f}")
                 
                 api_logger.log(f"Request completed: {total_time:.3f}s (inference: {timing_data['model_inference']:.3f}s, GCS: {timing_data['gcs_upload']:.3f}s)")
                 
