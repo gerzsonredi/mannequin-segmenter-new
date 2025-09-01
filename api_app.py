@@ -123,7 +123,7 @@ def create_app(testing=False):
     # GCP Cloud Storage Configuration
     gcp_project_id = get_env_variable("GCP_PROJECT_ID")
     gcp_sa_key_b64 = get_env_variable("GCP_SA_KEY")
-    gcp_bucket_name = get_env_variable("GCP_BUCKET_NAME", "pictures-not-public")
+    gcp_bucket_name = get_env_variable("GCP_BUCKET_NAME") or "pictures-not-public"
 
     # Initialize GCS client with service account key
     if gcp_sa_key_b64:
