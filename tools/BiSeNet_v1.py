@@ -349,8 +349,35 @@ class BiSeNetV1Segmenter:
             import time
             download_start = time.time()
             
-            # DNS + Connection + TLS timing
-            response = requests.get(image_url, timeout=30, stream=True)
+            # Create optimized session for image downloads with proper connection pooling
+            session = requests.Session()
+            session.headers.update({
+                'Accept-Encoding': 'gzip, deflate',
+                'Connection': 'keep-alive',
+                'User-Agent': 'mannequin-segmenter/1.0'
+            })
+            
+            # Configure session with connection pooling
+            from requests.adapters import HTTPAdapter
+            from urllib3.util.retry import Retry
+            
+            # Retry strategy for network resilience
+            retry_strategy = Retry(
+                total=3,
+                status_forcelist=[429, 500, 502, 503, 504],
+                method_whitelist=["HEAD", "GET", "OPTIONS"],
+                backoff_factor=0.3  # 0.3, 0.6, 1.2 seconds
+            )
+            adapter = HTTPAdapter(
+                max_retries=retry_strategy,
+                pool_connections=10,  # Connection pool size
+                pool_maxsize=20      # Max connections per pool
+            )
+            session.mount("http://", adapter)
+            session.mount("https://", adapter)
+            
+            # DNS + Connection + TLS timing with optimized session
+            response = session.get(image_url, timeout=(5, 25), stream=True)  # (connect, read) timeout
             first_byte_time = time.time() - download_start
             
             response.raise_for_status()
@@ -365,6 +392,8 @@ class BiSeNetV1Segmenter:
             print(f"   ⏱️  Content Download: {content_download_time:.3f}s") 
             print(f"   ⏱️  Total Download: {download_complete_time:.3f}s")
             print(f"   📦 Content Size: {len(content):,} bytes")
+            print(f"   🔄 Retry attempts: {getattr(response.raw, '_original_response', 'N/A')}")
+            print(f"   🌐 Final URL: {response.url}")
             
             # Load image timing
             image_decode_start = time.time()
@@ -399,6 +428,10 @@ class BiSeNetV1Segmenter:
         except Exception as e:
             print(f"   ❌ Processing failed: {e}")
             return None
+        finally:
+            # Clean up session if it exists
+            if 'session' in locals():
+                session.close()
 
 # 🚀 Image caching system for shared image downloads
 _image_cache = {}
