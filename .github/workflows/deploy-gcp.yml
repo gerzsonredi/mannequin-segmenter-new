@@ -76,9 +76,9 @@ jobs:
           --cpu 2 \
           --timeout 900 \
           --cpu-boost \
-          --concurrency=1 \
-          --min-instances 2 \
-          --max-instances 2 \
+          --concurrency 1 \
+          --min-instances 50 \
+          --max-instances 50 \
           --execution-environment gen2 \
           --set-env-vars="ENVIRONMENT=production,PYTHONPATH=/app,FORCE_CPU=true,CPU_COUNT=2,GCP_BUCKET_NAME=pictures-not-public,GCP_MODELS_BUCKET=artifactsredi,GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }},GCP_SA_KEY=${{ secrets.GCP_SA_KEY }}"
 

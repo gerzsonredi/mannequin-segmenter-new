@@ -342,14 +342,37 @@ class BiSeNetV1Segmenter:
     def process_image_url(self, image_url, plot=False):
         """Process image from URL and return result with white background"""
         try:
-            # Download image
+            # Download image with detailed timing
             print(f"📸 Processing image: {image_url}")
-            response = requests.get(image_url, timeout=30)
+            
+            # Detailed HTTP timing
+            import time
+            download_start = time.time()
+            
+            # DNS + Connection + TLS timing
+            response = requests.get(image_url, timeout=30, stream=True)
+            first_byte_time = time.time() - download_start
+            
             response.raise_for_status()
             
-            # Load image
-            image_pil = Image.open(io.BytesIO(response.content))
+            # Download content timing
+            content_start = time.time()
+            content = response.content
+            download_complete_time = time.time() - download_start
+            content_download_time = time.time() - content_start
+            
+            print(f"   ⏱️  HTTP First Byte: {first_byte_time:.3f}s")
+            print(f"   ⏱️  Content Download: {content_download_time:.3f}s") 
+            print(f"   ⏱️  Total Download: {download_complete_time:.3f}s")
+            print(f"   📦 Content Size: {len(content):,} bytes")
+            
+            # Load image timing
+            image_decode_start = time.time()
+            image_pil = Image.open(io.BytesIO(content))
             original_size = image_pil.size
+            image_decode_time = time.time() - image_decode_start
+            
+            print(f"   ⏱️  Image Decode: {image_decode_time:.3f}s")
             
             print(f"   📐 Original image size: {original_size}")
             
