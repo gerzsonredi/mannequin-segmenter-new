@@ -23,9 +23,9 @@ worker_class = "sync"  # Sync worker for Flask
 threads = 1  # Single request per instance (no resource contention)
 worker_connections = 5  # Keep low for single concurrent request
 
-# Restart workers after more requests to allow model pool to be utilized longer
-max_requests = 100
-max_requests_jitter = 10
+# Disable worker restart to avoid performance issues
+max_requests = 0  # 0 = never restart workers
+max_requests_jitter = 0
 
 # Logging
 loglevel = "info"

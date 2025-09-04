@@ -361,12 +361,13 @@ class BiSeNetV1Segmenter:
             from requests.adapters import HTTPAdapter
             from urllib3.util.retry import Retry
             
-            # Retry strategy for network resilience
+            # Retry strategy for network resilience - 2 sec fixed wait
             retry_strategy = Retry(
-                total=3,
+                total=5,  # Increased retries since we have faster waits
                 status_forcelist=[429, 500, 502, 503, 504],
                 allowed_methods=["HEAD", "GET", "OPTIONS"],  # Updated API
-                backoff_factor=0.3  # 0.3, 0.6, 1.2 seconds
+                backoff_factor=2.0,  # 2.0 seconds fixed wait between retries
+                backoff_max=2.0     # Maximum 2 seconds wait
             )
             adapter = HTTPAdapter(
                 max_retries=retry_strategy,
@@ -463,10 +464,11 @@ def _get_cached_image(image_url: str):
         from urllib3.util.retry import Retry
         
         retry_strategy = Retry(
-            total=3,
+            total=5,  # Increased retries since we have faster waits
             status_forcelist=[429, 500, 502, 503, 504],
             allowed_methods=["HEAD", "GET", "OPTIONS"],  # Updated API
-            backoff_factor=0.3
+            backoff_factor=2.0,  # 2.0 seconds fixed wait between retries
+            backoff_max=2.0     # Maximum 2 seconds wait
         )
         adapter = HTTPAdapter(
             max_retries=retry_strategy,
