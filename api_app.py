@@ -9,9 +9,12 @@ import numpy as np
 from google.cloud import storage
 import json
 import concurrent.futures
+import threading
 from dotenv import load_dotenv
 import os
 import uuid
+import random
+import string
 from datetime import datetime
 # CRITICAL: Set environment variables BEFORE importing torch
 # Remove problematic CUDA allocator config to avoid PyTorch crash
@@ -423,11 +426,21 @@ def create_app(testing=False):
             
             # Use single model for processing - simple and efficient for 1 concurrent request per instance
             print(f"   📸 Processing image: {image_url}")
-            vis = single_model.process_image_url(image_url, plot=False)
+            result = single_model.process_image_url(image_url, plot=False)
+            
+            # Handle new tuple return (result, download_time)
+            if isinstance(result, tuple):
+                vis, input_download_time = result
+                timing_data['input_download'] = input_download_time
+            else:
+                # Backward compatibility
+                vis = result
+                timing_data['input_download'] = 0.0
             
             inference_time = time.time() - inference_start
             timing_data['model_inference'] = inference_time
             print(f"   ✅ Model inference: {inference_time:.3f}s")
+            print(f"   📥 Input download: {timing_data['input_download']:.3f}s")
 
             if vis is None:
                 error_msg = f"Error: Failed to process image from URL: {image_url}"
@@ -435,10 +448,15 @@ def create_app(testing=False):
                 api_logger.log(error_msg)
                 return jsonify({"error": "Failed to process image"}), 500
 
+            # Prepare response data first
+            instance_completed_time = time.time()
+            total_time = instance_completed_time - request_start_time
+            timing_data['total_request'] = total_time
+            timing_data['instance_completed_timestamp'] = instance_completed_time
+            
             if upload_gcs:
-                gcs_start = time.time()
-                print("Step 3: GCS upload process...")
-                api_logger.log("Step 3: About to convert and upload to GCS")
+                print("Step 3: Preparing async GCS upload...")
+                api_logger.log("Step 3: Preparing async GCS upload")
                 
                 if gcs_bucket is None:
                     error_msg = "GCS client not initialized"
@@ -462,58 +480,57 @@ def create_app(testing=False):
                 timing_data['image_conversion'] = conversion_time
                 print(f"   ✅ Image conversion: {conversion_time:.3f}s")
 
-                upload_start = time.time()
-                filename = f"{uuid.uuid4()}.jpg"
+                # Generate unique filename with UUID + timestamp + random suffix for maximum uniqueness
+                random_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+                timestamp = int(time.time() * 1000)  # milliseconds
+                filename = f"{uuid.uuid4()}_{timestamp}_{random_suffix}.jpg"
                 today = datetime.utcnow()
                 date_prefix = today.strftime("%Y/%m/%d")
                 gcs_key = f"removed_mannequin/{date_prefix}/{filename}"
-
-                # Upload to GCS
-                blob = gcs_bucket.blob(gcs_key)
-                blob.upload_from_file(buff, content_type='image/jpeg')
-                
-                upload_time = time.time() - upload_start
-                timing_data['gcs_upload'] = upload_time
-                print(f"   ✅ GCS upload: {upload_time:.3f}s")
-
-                gcs_total_time = time.time() - gcs_start
-                timing_data['gcs_total'] = gcs_total_time
-                
                 gcs_url = f"https://storage.googleapis.com/{gcp_bucket_name}/{gcs_key}"
+
+                # Start async upload in background thread
+                def async_upload():
+                    try:
+                        upload_start = time.time()
+                        blob = gcs_bucket.blob(gcs_key)
+                        blob.upload_from_file(buff, content_type='image/jpeg')
+                        upload_time = time.time() - upload_start
+                        print(f"   🚀 Background GCS upload completed: {upload_time:.3f}s")
+                        api_logger.log(f"Background GCS upload completed: {upload_time:.3f}s for {gcs_url}")
+                    except Exception as e:
+                        print(f"   ❌ Background GCS upload failed: {e}")
+                        api_logger.log(f"Background GCS upload failed: {e}")
+
+                # Start upload in background thread (non-blocking)
+                upload_thread = threading.Thread(target=async_upload, daemon=True)
+                upload_thread.start()
                 
-                # Mark when instance finishes processing (before response creation)
-                instance_completed_time = time.time()
-                total_time = instance_completed_time - request_start_time
-                timing_data['total_request'] = total_time
-                timing_data['instance_completed_timestamp'] = instance_completed_time
-                
-                print(f"Step 4: Request completed in {total_time:.3f}s")
+                print(f"Step 4: Request completed in {total_time:.3f}s (GCS upload started in background)")
                 print(f"   📊 TIMING BREAKDOWN:")
                 print(f"      Request parsing: {timing_data['request_parsing']:.3f}s ({timing_data['request_parsing']/total_time*100:.1f}%)")
                 print(f"      Model check: {timing_data['model_check']:.3f}s ({timing_data['model_check']/total_time*100:.1f}%)")
                 print(f"      Model inference: {timing_data['model_inference']:.3f}s ({timing_data['model_inference']/total_time*100:.1f}%)")
+                print(f"      Input download: {timing_data['input_download']:.3f}s ({timing_data['input_download']/total_time*100:.1f}%)")
                 print(f"      Image conversion: {timing_data['image_conversion']:.3f}s ({timing_data['image_conversion']/total_time*100:.1f}%)")
-                print(f"      GCS upload: {timing_data['gcs_upload']:.3f}s ({timing_data['gcs_upload']/total_time*100:.1f}%)")
-                print(f"      Total: {total_time:.3f}s")
-                print(f"   🚀 Successfully processed and uploaded: {gcs_url}")
+                print(f"      Total (before async upload): {total_time:.3f}s")
+                print(f"   🚀 Response ready, GCS upload running in background: {gcs_url}")
                 print(f"   ⏰ Instance completed at: {instance_completed_time:.6f}")
                 
-                api_logger.log(f"Request completed: {total_time:.3f}s (inference: {timing_data['model_inference']:.3f}s, GCS: {timing_data['gcs_upload']:.3f}s)")
+                api_logger.log(f"Request completed: {total_time:.3f}s (inference: {timing_data['model_inference']:.3f}s, input_download: {timing_data['input_download']:.3f}s)")
                 
                 return jsonify({
                     "visualization_url": gcs_url,
                     "timing": timing_data
                 })
             else:
-                total_time = time.time() - request_start_time
-                timing_data['total_request'] = total_time
-                
-                # ⚡ SPEED: Minimal response for fast processing
+                # ⚡ SPEED: Minimal response for fast processing (no GCS upload)
                 print(f"Step 3: Fast response (no GCS) - {total_time:.3f}s total")
                 print(f"   📊 TIMING BREAKDOWN:")
                 print(f"      Request parsing: {timing_data['request_parsing']:.3f}s ({timing_data['request_parsing']/total_time*100:.1f}%)")
                 print(f"      Model check: {timing_data['model_check']:.3f}s ({timing_data['model_check']/total_time*100:.1f}%)")
                 print(f"      Model inference: {timing_data['model_inference']:.3f}s ({timing_data['model_inference']/total_time*100:.1f}%)")
+                print(f"      Input download: {timing_data['input_download']:.3f}s ({timing_data['input_download']/total_time*100:.1f}%)")
                 print(f"      Total: {total_time:.3f}s")
                 
                 return jsonify({

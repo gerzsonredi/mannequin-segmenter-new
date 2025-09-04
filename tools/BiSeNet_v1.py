@@ -340,7 +340,7 @@ class BiSeNetV1Segmenter:
         return result_pil
     
     def process_image_url(self, image_url, plot=False):
-        """Process image from URL and return result with white background"""
+        """Process image from URL and return result with white background and download timing"""
         try:
             # Download image with detailed timing
             print(f"📸 Processing image: {image_url}")
@@ -424,11 +424,12 @@ class BiSeNetV1Segmenter:
             
             print(f"   ✅ Processing completed successfully")
             
-            return result_pil
+            # Return result with download timing info
+            return result_pil, download_complete_time
             
         except Exception as e:
             print(f"   ❌ Processing failed: {e}")
-            return None
+            return None, 0.0  # Return None result with 0 download time on error
         finally:
             # Clean up session if it exists
             if 'session' in locals():
