@@ -12,6 +12,7 @@ import concurrent.futures
 import threading
 from dotenv import load_dotenv
 import os
+import hashlib
 import uuid
 import random
 import string
@@ -454,90 +455,65 @@ def create_app(testing=False):
             timing_data['total_request'] = total_time
             timing_data['instance_completed_timestamp'] = instance_completed_time
             
-            if upload_gcs:
-                print("Step 3: Preparing async GCS upload...")
-                api_logger.log("Step 3: Preparing async GCS upload")
-                
-                if gcs_bucket is None:
-                    error_msg = "GCS client not initialized"
-                    print(f"❌ {error_msg}")
-                    api_logger.log(error_msg)
-                    return jsonify({"error": error_msg}), 500
-                
-                # Handle both PIL Image and numpy array
-                conversion_start = time.time()
-                if isinstance(vis, Image.Image):
-                    vis_pil = vis
-                    print("   ✅ Using PIL Image directly")
-                else:
-                    vis_pil = Image.fromarray(vis.astype(np.uint8))
-                    print("   🔄 Converting numpy array to PIL")
-                
-                buff = io.BytesIO()
-                vis_pil.save(buff, format="JPEG")
-                buff.seek(0)
-                conversion_time = time.time() - conversion_start
-                timing_data['image_conversion'] = conversion_time
-                print(f"   ✅ Image conversion: {conversion_time:.3f}s")
+            # Save result locally and return Nginx signed URL
+            print("Step 3: Local file save and signed URL generation...")
+            api_logger.log("Step 3: Local file save and signed URL generation")
 
-                # Generate unique filename with UUID + timestamp + random suffix for maximum uniqueness
-                random_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
-                timestamp = int(time.time() * 1000)  # milliseconds
-                filename = f"{uuid.uuid4()}_{timestamp}_{random_suffix}.jpg"
-                today = datetime.utcnow()
-                date_prefix = today.strftime("%Y/%m/%d")
-                gcs_key = f"removed_mannequin/{date_prefix}/{filename}"
-                gcs_url = f"https://storage.googleapis.com/{gcp_bucket_name}/{gcs_key}"
-
-                # Start async upload in background thread
-                def async_upload():
-                    try:
-                        upload_start = time.time()
-                        blob = gcs_bucket.blob(gcs_key)
-                        blob.upload_from_file(buff, content_type='image/jpeg')
-                        upload_time = time.time() - upload_start
-                        print(f"   🚀 Background GCS upload completed: {upload_time:.3f}s")
-                        api_logger.log(f"Background GCS upload completed: {upload_time:.3f}s for {gcs_url}")
-                    except Exception as e:
-                        print(f"   ❌ Background GCS upload failed: {e}")
-                        api_logger.log(f"Background GCS upload failed: {e}")
-
-                # Start upload in background thread (non-blocking)
-                upload_thread = threading.Thread(target=async_upload, daemon=True)
-                upload_thread.start()
-                
-                print(f"Step 4: Request completed in {total_time:.3f}s (GCS upload started in background)")
-                print(f"   📊 TIMING BREAKDOWN:")
-                print(f"      Request parsing: {timing_data['request_parsing']:.3f}s ({timing_data['request_parsing']/total_time*100:.1f}%)")
-                print(f"      Model check: {timing_data['model_check']:.3f}s ({timing_data['model_check']/total_time*100:.1f}%)")
-                print(f"      Model inference: {timing_data['model_inference']:.3f}s ({timing_data['model_inference']/total_time*100:.1f}%)")
-                print(f"      Input download: {timing_data['input_download']:.3f}s ({timing_data['input_download']/total_time*100:.1f}%)")
-                print(f"      Image conversion: {timing_data['image_conversion']:.3f}s ({timing_data['image_conversion']/total_time*100:.1f}%)")
-                print(f"      Total (before async upload): {total_time:.3f}s")
-                print(f"   🚀 Response ready, GCS upload running in background: {gcs_url}")
-                print(f"   ⏰ Instance completed at: {instance_completed_time:.6f}")
-                
-                api_logger.log(f"Request completed: {total_time:.3f}s (inference: {timing_data['model_inference']:.3f}s, input_download: {timing_data['input_download']:.3f}s)")
-                
-                return jsonify({
-                    "visualization_url": gcs_url,
-                    "timing": timing_data
-                })
+            # Handle both PIL Image and numpy array
+            conversion_start = time.time()
+            if isinstance(vis, Image.Image):
+                vis_pil = vis
+                print("   ✅ Using PIL Image directly")
             else:
-                # ⚡ SPEED: Minimal response for fast processing (no GCS upload)
-                print(f"Step 3: Fast response (no GCS) - {total_time:.3f}s total")
-                print(f"   📊 TIMING BREAKDOWN:")
-                print(f"      Request parsing: {timing_data['request_parsing']:.3f}s ({timing_data['request_parsing']/total_time*100:.1f}%)")
-                print(f"      Model check: {timing_data['model_check']:.3f}s ({timing_data['model_check']/total_time*100:.1f}%)")
-                print(f"      Model inference: {timing_data['model_inference']:.3f}s ({timing_data['model_inference']/total_time*100:.1f}%)")
-                print(f"      Input download: {timing_data['input_download']:.3f}s ({timing_data['input_download']/total_time*100:.1f}%)")
-                print(f"      Total: {total_time:.3f}s")
-                
-                return jsonify({
-                    "success": True,
-                    "inference_completed": True,
-                    "timing": timing_data
-                })
+                vis_pil = Image.fromarray(vis.astype(np.uint8))
+            buff_time = time.time() - conversion_start
+            timing_data['image_conversion'] = buff_time
+
+            # Build local file path
+            random_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+            timestamp = int(time.time() * 1000)
+            filename = f"{uuid.uuid4()}_{timestamp}_{random_suffix}.jpg"
+
+            # Match Nginx location /d/ with root /var/www → files under /var/www/d/*
+            # Using /var/www/d/results by default to align with example config
+            results_dir = os.getenv('RESULTS_DIR', '/var/www/d/results')
+            os.makedirs(results_dir, exist_ok=True)
+            file_path = os.path.join(results_dir, filename)
+
+            save_start = time.time()
+            vis_pil.save(file_path, format='JPEG')
+            file_save_time = time.time() - save_start
+            timing_data['file_save'] = file_save_time
+            print(f"   💾 Saved file: {file_path} in {file_save_time:.3f}s")
+
+            # Generate Nginx signed URL: /d/results/<filename>?expires=...&md5=...
+            public_base = os.getenv('PUBLIC_BASE_URL', 'http://localhost')
+            secure_secret = os.getenv('SECURE_LINK_SECRET', 'your-secret-key')
+            ttl_sec = int(os.getenv('SIGNED_URL_TTL', '600'))
+
+            path_rel = f"/d/results/{filename}"
+            expires = int(time.time()) + ttl_sec
+            sig_input = f"{expires}{path_rel} {secure_secret}".encode('utf-8')
+            md5_sig = hashlib.md5(sig_input).hexdigest()
+            download_url = f"{public_base}{path_rel}?expires={expires}&md5={md5_sig}"
+
+            print(f"Step 4: Request completed in {total_time:.3f}s")
+            print("   📊 TIMING BREAKDOWN:")
+            print(f"      Request parsing: {timing_data['request_parsing']:.3f}s ({timing_data['request_parsing']/total_time*100:.1f}%)")
+            print(f"      Model check: {timing_data['model_check']:.3f}s ({timing_data['model_check']/total_time*100:.1f}%)")
+            print(f"      Input download: {timing_data['input_download']:.3f}s ({timing_data['input_download']/total_time*100:.1f}%)")
+            print(f"      Model inference: {timing_data['model_inference']:.3f}s ({timing_data['model_inference']/total_time*100:.1f}%)")
+            print(f"      Image conversion: {timing_data['image_conversion']:.3f}s ({timing_data['image_conversion']/total_time*100:.1f}%)")
+            print(f"      File save: {timing_data['file_save']:.3f}s ({timing_data['file_save']/total_time*100:.1f}%)")
+            print(f"      Total: {total_time:.3f}s")
+            print(f"   🔗 Signed URL: {download_url}")
+
+            api_logger.log(f"Request completed: {total_time:.3f}s (inference: {timing_data['model_inference']:.3f}s, download: {timing_data['input_download']:.3f}s, save: {file_save_time:.3f}s)")
+
+            return jsonify({
+                "visualization_url": download_url,
+                "timing": timing_data
+            })
 
         except Exception as e:
             total_time = time.time() - request_start_time
@@ -627,52 +603,48 @@ def create_app(testing=False):
                 print("Error: No images were successfully processed in batch")
                 return jsonify({"error": "Failed to process any images in batch"}), 500
 
-            api_logger.log(f"Successfully processed {len(processed_images)} images, uploading to GCS...")
-            print(f"Successfully processed {len(processed_images)} images, uploading to GCS...")
-            
-            # Upload all processed images to GCS in parallel for better performance
-            today = datetime.utcnow()
-            date_prefix = today.strftime("%Y/%m/%d")
-            
-            def upload_single_image(img_index_pair):
+            api_logger.log(f"Successfully processed {len(processed_images)} images, saving locally...")
+            print(f"Successfully processed {len(processed_images)} images, saving locally...")
+
+            # Local save + signed URL generation in parallel
+            public_base = os.getenv('PUBLIC_BASE_URL', 'http://localhost')
+            secure_secret = os.getenv('SECURE_LINK_SECRET', 'your-secret-key')
+            ttl_sec = int(os.getenv('SIGNED_URL_TTL', '600'))
+            results_dir = os.getenv('RESULTS_DIR', '/var/www/d/results')
+            os.makedirs(results_dir, exist_ok=True)
+
+            def save_single_image(img_index_pair):
                 i, processed_img = img_index_pair
                 try:
-                    if gcs_bucket is None:
-                        return i, None, "GCS client not initialized"
-                    
-                    # Convert to PIL and upload
                     vis_pil = Image.fromarray(processed_img.astype(np.uint8))
-                    buff = io.BytesIO()
-                    vis_pil.save(buff, format="JPEG")
-                    buff.seek(0)
+                    random_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+                    timestamp = int(time.time() * 1000)
+                    filename = f"batch_{uuid.uuid4()}_{timestamp}_{random_suffix}_{i}.jpg"
+                    file_path = os.path.join(results_dir, filename)
+                    vis_pil.save(file_path, format='JPEG')
 
-                    filename = f"batch_{uuid.uuid4()}_{i}.jpg"
-                    gcs_key = f"removed_mannequin/{date_prefix}/{filename}"
-
-                    # Upload to GCS
-                    blob = gcs_bucket.blob(gcs_key)
-                    blob.upload_from_file(buff, content_type='image/jpeg')
-
-                    gcs_url = f"https://storage.googleapis.com/{gcp_bucket_name}/{gcs_key}"
-                    return i, gcs_url, None
-                    
-                except Exception as upload_error:
-                    error_msg = f"Error uploading image {i}: {upload_error}"
+                    path_rel = f"/d/results/{filename}"
+                    expires = int(time.time()) + ttl_sec
+                    sig_input = f"{expires}{path_rel} {secure_secret}".encode('utf-8')
+                    md5_sig = hashlib.md5(sig_input).hexdigest()
+                    download_url = f"{public_base}{path_rel}?expires={expires}&md5={md5_sig}"
+                    return i, download_url, None
+                except Exception as save_error:
+                    error_msg = f"Error saving image {i}: {save_error}"
                     api_logger.log(error_msg)
                     print(error_msg)
-                    return i, None, str(upload_error)
-            
-            # Upload images in parallel (max 15 concurrent for 30 model pool utilization)
+                    return i, None, str(save_error)
+
             with concurrent.futures.ThreadPoolExecutor(max_workers=15) as executor:
-                upload_tasks = [(i, img) for i, img in enumerate(processed_images)]
-                upload_results = list(executor.map(upload_single_image, upload_tasks))
-            
-            # Build gcs_urls list in correct order
-            gcs_urls = [None] * len(processed_images)
-            for i, gcs_url, error in upload_results:
-                gcs_urls[i] = gcs_url
-            
-            successful_uploads = [url for url in gcs_urls if url is not None]
+                save_tasks = [(i, img) for i, img in enumerate(processed_images)]
+                save_results = list(executor.map(save_single_image, save_tasks))
+
+            # Build urls list in correct order
+            download_urls = [None] * len(processed_images)
+            for i, url, error in save_results:
+                download_urls[i] = url
+
+            successful_uploads = [url for url in download_urls if url is not None]
             
             api_logger.log(f"Batch processing completed: {len(successful_uploads)}/{batch_size} successful")
             print(f"Batch processing completed: {len(successful_uploads)}/{batch_size} successful")
@@ -688,7 +660,7 @@ def create_app(testing=False):
                 "batch_size": batch_size,
                 "successful_count": len(successful_uploads),
                 "failed_count": batch_size - len(successful_uploads),
-                "visualization_urls": gcs_urls,
+                "visualization_urls": download_urls,
                 "input_urls": image_urls
             })
 

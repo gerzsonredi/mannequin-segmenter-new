@@ -78,12 +78,5 @@ class AppLogger:
         self._upload_to_gcs()
 
     def _upload_to_gcs(self):
-        if self.gcs_bucket is None:
-            return
-        try:
-            gcs_key = f"logs/bisenet/{os.path.basename(self.log_file)}"
-            blob = self.gcs_bucket.blob(gcs_key)
-            blob.upload_from_filename(self.log_file)
-        except Exception as e:
-            # If upload fails, just skip (do not crash the app)
-            pass 
+        # GCS log upload disabled intentionally
+        return
